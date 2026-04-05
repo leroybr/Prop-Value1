@@ -1,0 +1,106 @@
+{
+  "entities": {
+    "user": {
+      "title": "User Profile",
+      "description": "Stores user-specific settings and profile data.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Unique identifier for the user." },
+        "email": { "type": "string", "format": "email", "description": "User's email address." },
+        "displayName": { "type": "string", "description": "User's display name." },
+        "photoURL": { "type": "string", "description": "URL to the user's profile photo." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "When the user profile was created." }
+      },
+      "required": ["uid", "email", "createdAt"]
+    },
+    "valuation": {
+      "title": "Property Valuation",
+      "description": "A single property valuation record.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "ID of the user who performed the valuation." },
+        "commune": { "type": "string", "description": "Commune where the property is located." },
+        "rol_sii": { "type": "string", "description": "SII Rol of the property." },
+        "avaluo_fiscal": { "type": "number", "description": "Fiscal appraisal value in CLP." },
+        "m2_useful": { "type": "number", "description": "Useful square meters." },
+        "m2_total": { "type": "number", "description": "Total square meters." },
+        "bedrooms": { "type": "number", "description": "Number of bedrooms." },
+        "bathrooms": { "type": "number", "description": "Number of bathrooms." },
+        "parking": { "type": "number", "description": "Number of parking spaces." },
+        "storage": { "type": "number", "description": "Number of storage units." },
+        "year_built": { "type": "number", "description": "Year the property was built." },
+        "estimated_price_uf": { "type": "number", "description": "Estimated price in UF." },
+        "estimated_price_clp": { "type": "number", "description": "Estimated price in CLP." },
+        "confidence_score": { "type": "number", "description": "Confidence score of the valuation (0-1)." },
+        "market_context": { "type": "string", "description": "AI-generated market context." },
+        "cabida_informe": {
+          "type": "object",
+          "properties": {
+            "max_floors": { "type": "number" },
+            "max_m2_buildable": { "type": "number" },
+            "observations": { "type": "string" }
+          }
+        },
+        "restricciones_analisis": {
+          "type": "object",
+          "properties": {
+            "risk_zones": { "type": "string" },
+            "expropriations": { "type": "string" },
+            "heritage_protection": { "type": "string" },
+            "observations": { "type": "string" }
+          }
+        },
+        "plusvalia_calculo": {
+          "type": "object",
+          "properties": {
+            "estimated_annual_appreciation": { "type": "number" },
+            "future_factors": { "type": "string" },
+            "market_projection": { "type": "string" }
+          }
+        },
+        "createdAt": { "type": "string", "format": "date-time", "description": "When the valuation was performed." }
+      },
+      "required": ["userId", "commune", "estimated_price_uf", "createdAt"]
+    },
+    "project": {
+      "title": "Real Estate Project",
+      "description": "A new real estate project or building development.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "developer": { "type": "string" },
+        "region": { "type": "string", "enum": ["Biobío", "Metropolitana"] },
+        "commune": { "type": "string" },
+        "address": { "type": "string" },
+        "status": { "type": "string" },
+        "floors": { "type": "number" },
+        "total_units": { "type": "number" },
+        "amenities": { "type": "array", "items": { "type": "string" } },
+        "sustainability_features": { "type": "array", "items": { "type": "string" } },
+        "avg_price_uf_m2": { "type": "number" },
+        "coordinates": {
+          "type": "object",
+          "properties": {
+            "lat": { "type": "number" },
+            "lng": { "type": "number" }
+          }
+        }
+      },
+      "required": ["name", "region", "commune", "status"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "user",
+      "description": "User profile documents."
+    },
+    "/valuations/{valuationId}": {
+      "schema": "valuation",
+      "description": "Collection of all property valuations."
+    },
+    "/projects/{projectId}": {
+      "schema": "project",
+      "description": "Collection of new real estate projects."
+    }
+  }
+}
