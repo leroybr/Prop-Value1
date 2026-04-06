@@ -165,6 +165,7 @@ export interface ValuationResult {
     };
     total_uf: number;
   };
+  property_data: PropertyData;
 }
 
 export interface ComparableProperty {
