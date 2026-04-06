@@ -140,12 +140,14 @@ service cloud.firestore {
     // ===============================================================
 
     match /projects/{projectId} {
-      // Projects are public
-      allow read, write: if true;
+      // Projects are public for reading, but only admins can write
+      allow read: if true;
+      allow write: if isAdmin();
     }
 
     match /projects/{document=**} {
-      allow read, write: if true;
+      allow read: if true;
+      allow write: if isAdmin();
     }
 
     match /users/{userId} {
