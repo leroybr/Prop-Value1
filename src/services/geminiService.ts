@@ -22,14 +22,14 @@ function getAi() {
   return aiInstance;
 }
 
-export async function getRegulatoryData(commune: string, sector: string, rol: string): Promise<{
+export async function getRegulatoryData(commune: string, sector: string, rol: string, street?: string, number?: string): Promise<{
   zoning_code: string;
   max_height: number;
   constructability_index: number;
   land_use_coefficient: number;
   property_usage: string;
 }> {
-  console.log("Consultando normativa detallada para:", { commune, sector, rol });
+  console.log("Consultando normativa detallada para:", { commune, sector, rol, street, number });
   const ai = getAi();
   const prompt = `
     Act as a Senior Chilean Urban Planning Expert (Arquitecto Revisor DOM). 
@@ -38,11 +38,14 @@ export async function getRegulatoryData(commune: string, sector: string, rol: st
     Location:
     - Commune: ${commune}
     - Sector/Neighborhood: ${sector}
+    - Address: ${street || ""} ${number || ""}
     - Rol SII: ${rol}
     
     Context for Concepción:
-    - If the sector is "Centro", look for zones like "CPH" (Centro de Protección Histórica), "CC" (Centro Comercial), or "CU" (Centro Urbano).
-    - CPH zones (Centro de Protección Histórica) are critical in Concepción Centro.
+    - If the sector is "Centro", the zone is almost certainly "CPH" (Centro de Protección Histórica).
+    - CPH zones (Centro de Protección Histórica) are the most important zones in Concepción Centro.
+    - Other zones in Concepción include "CC" (Centro Comercial), "CU" (Centro Urbano), "H" (Habitacional).
+    - If the user specifies "Centro" in Concepción, prioritize returning "CPH" as the zoning_code.
     
     Provide the following data in JSON format:
     - zoning_code: The specific zone code (e.g., ZH-1, RM-2, CPH, CC, H-1).
@@ -97,6 +100,7 @@ export async function estimatePropertyValue(data: PropertyData, ufValue: number)
     Property Details:
     - Client: ${data.client_name || "Not specified"}
     - Type: ${data.property_type}
+    - Address: ${data.address_street || ""} ${data.address_number || ""}
     - Commune: ${data.commune}
     - Sector/Neighborhood: ${data.sector || "Not specified"}
     - Sector Description: ${data.sector_description || "Not specified"}
@@ -395,3 +399,5 @@ export async function estimatePropertyValue(data: PropertyData, ufValue: number)
     console.error("Detailed Gemini API error:", error);
     throw error;
   }
+}
+
