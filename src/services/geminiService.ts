@@ -388,10 +388,10 @@ export async function estimatePropertyValue(data: PropertyData, ufValue: number)
       ...result,
       estimated_price_uf,
       estimated_price_clp: Math.round(estimated_price_uf * ufValue),
-      valuation_type: data.valuation_type
+      valuation_type: data.valuation_type,
+      property_data: data
     };
   } catch (error) {
     console.error("Detailed Gemini API error:", error);
     throw error;
   }
-}
