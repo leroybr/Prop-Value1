@@ -6,9 +6,10 @@ let aiInstance: GoogleGenAI | null = null;
 function getAi() {
   if (!aiInstance) {
     // Buscamos la clave en todas las fuentes posibles (Vercel y AI Studio)
+    // Vite expondrá VITE_GEMINI_API_KEY automáticamente si existe.
+    // También la definimos en vite.config.ts para mayor seguridad.
     const apiKey = import.meta.env.VITE_GEMINI_API_KEY || 
-                   (typeof process !== 'undefined' ? process.env.GEMINI_API_KEY : null) ||
-                   (window as any).process?.env?.GEMINI_API_KEY;
+                   (typeof process !== 'undefined' ? process.env.GEMINI_API_KEY : null);
     
     console.log("Verificando Clave Gemini:", apiKey ? "Detectada (OK)" : "No detectada (FALTA)");
 
@@ -28,25 +29,29 @@ export async function getRegulatoryData(commune: string, sector: string, rol: st
   land_use_coefficient: number;
   property_usage: string;
 }> {
-  console.log("Fetching regulatory data for:", { commune, sector, rol });
+  console.log("Consultando normativa detallada para:", { commune, sector, rol });
   const ai = getAi();
   const prompt = `
-    Act as a Chilean Urban Planning Expert. 
-    Based on the following location data, provide the estimated urban norms (normas urbanísticas) from the "Plano Regulador Comunal" (PRC).
+    Act as a Senior Chilean Urban Planning Expert (Arquitecto Revisor DOM). 
+    Your task is to provide the urban norms (normas urbanísticas) from the "Plano Regulador Comunal" (PRC) for the following location.
     
     Location:
     - Commune: ${commune}
-    - Sector/Address: ${sector}
+    - Sector/Neighborhood: ${sector}
     - Rol SII: ${rol}
     
+    Context for Concepción:
+    - If the sector is "Centro", look for zones like "CPH" (Centro de Protección Histórica), "CC" (Centro Comercial), or "CU" (Centro Urbano).
+    - CPH zones (Centro de Protección Histórica) are critical in Concepción Centro.
+    
     Provide the following data in JSON format:
-    - zoning_code: The specific zone code (e.g., ZH-1, RM-2).
-    - max_height: Maximum built height allowed in meters (number).
+    - zoning_code: The specific zone code (e.g., ZH-1, RM-2, CPH, CC, H-1).
+    - max_height: Maximum built height allowed in meters (number). If expressed in floors, assume 3 meters per floor.
     - constructability_index: Coefficient of constructability (number).
     - land_use_coefficient: Land occupation coefficient (number).
     - property_usage: Primary allowed usage (Habitacional, Comercial, Agrícola, or Esparcimiento o Cultura).
     
-    If you are not 100% sure, provide the most likely values for that specific sector.
+    Important: If you find multiple sub-zones, provide the data for the most restrictive or most common one in that specific sector.
   `;
 
   try {
