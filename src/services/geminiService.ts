@@ -208,7 +208,7 @@ export async function estimatePropertyValue(data: PropertyData, ufValue: number)
         - Buildings (Construcciones): Total m2, Average UF/m2, Total UF, and a list of details per floor or structure (e.g., Piso 1, Piso 2).
         - Complementary Works (Obras Complementarias): Total UF and description.
         - The sum of these must equal the "estimated_price_uf".
-    ` : 'BASIC MODE: Provide a concise valuation with market context.'}
+    ` : 'BASIC MODE: Provide a concise valuation with market context and 3 basic comparables (price_uf, m2, distance_km, source).'}
 
     If they are inconsistent (e.g., a height of 50 floors in a low-density residential zone), mark "is_consistent" as false and explain why in "observations".
   `;
@@ -262,6 +262,19 @@ export async function estimatePropertyValue(data: PropertyData, ufValue: number)
                 market_projection: { type: Type.STRING }
               },
               required: ["estimated_annual_appreciation", "future_factors", "market_projection"]
+            },
+            comparables: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  price_uf: { type: Type.NUMBER },
+                  m2: { type: Type.NUMBER },
+                  distance_km: { type: Type.NUMBER },
+                  source: { type: Type.STRING }
+                },
+                required: ["price_uf", "m2", "distance_km", "source"]
+              }
             },
             professional_analysis: {
               type: Type.OBJECT,
@@ -339,7 +352,7 @@ export async function estimatePropertyValue(data: PropertyData, ufValue: number)
               }
             }
           },
-          required: ["estimated_price_uf", "confidence_score", "market_context", "regulatory_analysis", "cabida_informe", "restricciones_analisis", "plusvalia_calculo"]
+          required: ["estimated_price_uf", "confidence_score", "market_context", "regulatory_analysis", "cabida_informe", "restricciones_analisis", "plusvalia_calculo", "comparables"]
         }
       },
     });
