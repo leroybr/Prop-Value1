@@ -12,6 +12,8 @@ const schema = z.object({
   property_type: z.enum(['Departamento', 'Casa', 'Sitio Eriazo', 'Oficina', 'Local Comercial', 'Agrícola / Parcela', 'Teatro']),
   rol_sii: z.string().optional(),
   avaluo_fiscal: z.number().optional(),
+  address_street: z.string().optional(),
+  address_number: z.string().optional(),
   commune: z.string().min(1, "La comuna es requerida"),
   sector: z.string().optional(),
   zoning_code: z.string().optional(),
@@ -147,6 +149,8 @@ export const ValuationForm: React.FC<Props> = ({ onSubmit, isLoading }) => {
   const commune = watch("commune");
   const sector = watch("sector");
   const rol = watch("rol_sii");
+  const street = watch("address_street");
+  const number = watch("address_number");
 
   const handleFetchNorms = async () => {
     const apiKey = import.meta.env.VITE_GEMINI_API_KEY || 
@@ -165,7 +169,7 @@ export const ValuationForm: React.FC<Props> = ({ onSubmit, isLoading }) => {
     
     setIsFetchingNorms(true);
     try {
-      const data = await getRegulatoryData(commune, sector || "", rol || "");
+      const data = await getRegulatoryData(commune, sector || "", rol || "", street || "", number || "");
       if (!data) throw new Error("No se recibieron datos de la IA.");
       
       setValue("zoning_code", data.zoning_code);
@@ -249,7 +253,9 @@ export const ValuationForm: React.FC<Props> = ({ onSubmit, isLoading }) => {
                 setValue('client_name', 'SOCIEDAD DE INVERSIONES CHILE SPA');
                 setValue('property_type', 'Local Comercial');
                 setValue('commune', 'Concepción');
-                setValue('sector', 'Centro / Plaza de Armas (Aníbal Pinto 343 - Local 29)');
+                setValue('address_street', 'Aníbal Pinto');
+                setValue('address_number', '343');
+                setValue('sector', 'Centro / Plaza de Armas (Local 29)');
                 setValue('rol_sii', '136-126');
                 setValue('avaluo_fiscal', 676887653);
                 setValue('m2_total', 959);
@@ -379,6 +385,26 @@ export const ValuationForm: React.FC<Props> = ({ onSubmit, isLoading }) => {
               Consultar SII
             </button>
           </div>
+        </div>
+
+        <div className="space-y-1">
+          <label className="text-sm font-medium text-gray-600">Dirección (Calle / Avenida)</label>
+          <input 
+            type="text" 
+            placeholder="Ej: Av. O'Higgins"
+            {...register("address_street")}
+            className="w-full p-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+
+        <div className="space-y-1">
+          <label className="text-sm font-medium text-gray-600">Número</label>
+          <input 
+            type="text" 
+            placeholder="Ej: 123"
+            {...register("address_number")}
+            className="w-full p-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
+          />
         </div>
 
         <div className="space-y-1">
