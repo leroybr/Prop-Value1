@@ -1,16 +1,88 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { PropertyData, ValuationResult } from "../types";
 
-const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+let aiInstance: GoogleGenAI | null = null;
 
-if (!apiKey) {
-  console.error("CRITICAL ERROR: VITE_GEMINI_API_KEY is missing in the environment!");
-  throw new Error("La clave de API de Gemini (VITE_GEMINI_API_KEY) no está configurada en Vercel.");
+function getAi() {
+  if (!aiInstance) {
+    // Buscamos la clave en todas las fuentes posibles (Vercel y AI Studio)
+    const apiKey = import.meta.env.VITE_GEMINI_API_KEY || 
+                   (typeof process !== 'undefined' ? process.env.GEMINI_API_KEY : null) ||
+                   (window as any).process?.env?.GEMINI_API_KEY;
+    
+    console.log("Verificando Clave Gemini:", apiKey ? "Detectada (OK)" : "No detectada (FALTA)");
+
+    if (!apiKey || apiKey === "undefined") {
+      console.error("ERROR CRÍTICO: No se encuentra la clave VITE_GEMINI_API_KEY.");
+      throw new Error("Falta la clave de API. Si estás en Vercel, haz un 'Redeploy'. Si estás en AI Studio, agrégala en Settings > Secrets.");
+    }
+    aiInstance = new GoogleGenAI({ apiKey });
+  }
+  return aiInstance;
 }
 
-const ai = new GoogleGenAI({ apiKey });
+export async function getRegulatoryData(commune: string, sector: string, rol: string): Promise<{
+  zoning_code: string;
+  max_height: number;
+  constructability_index: number;
+  land_use_coefficient: number;
+  property_usage: string;
+}> {
+  console.log("Fetching regulatory data for:", { commune, sector, rol });
+  const ai = getAi();
+  const prompt = `
+    Act as a Chilean Urban Planning Expert. 
+    Based on the following location data, provide the estimated urban norms (normas urbanísticas) from the "Plano Regulador Comunal" (PRC).
+    
+    Location:
+    - Commune: ${commune}
+    - Sector/Address: ${sector}
+    - Rol SII: ${rol}
+    
+    Provide the following data in JSON format:
+    - zoning_code: The specific zone code (e.g., ZH-1, RM-2).
+    - max_height: Maximum built height allowed in meters (number).
+    - constructability_index: Coefficient of constructability (number).
+    - land_use_coefficient: Land occupation coefficient (number).
+    - property_usage: Primary allowed usage (Habitacional, Comercial, Agrícola, or Esparcimiento o Cultura).
+    
+    If you are not 100% sure, provide the most likely values for that specific sector.
+  `;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            zoning_code: { type: Type.STRING },
+            max_height: { type: Type.NUMBER },
+            constructability_index: { type: Type.NUMBER },
+            land_use_coefficient: { type: Type.NUMBER },
+            property_usage: { type: Type.STRING }
+          },
+          required: ["zoning_code", "max_height", "constructability_index", "land_use_coefficient", "property_usage"]
+        }
+      }
+    });
+
+    if (!response.text) {
+      throw new Error("La IA no devolvió texto para la normativa.");
+    }
+
+    console.log("Regulatory data response:", response.text);
+    return JSON.parse(response.text);
+  } catch (error) {
+    console.error("Error fetching regulatory data:", error);
+    throw error;
+  }
+}
 
 export async function estimatePropertyValue(data: PropertyData, ufValue: number): Promise<ValuationResult> {
+  const ai = getAi();
   const prompt = `
     Act as a Senior Real Estate Appraiser (Tasador Inmobiliario Senior) and Data Scientist for the Chilean market.
     Your goal is to provide a ${data.valuation_type === 'professional' ? 'PREMIUM professional valuation (AVM) report' : 'BASIC valuation estimate'}.
@@ -141,7 +213,7 @@ export async function estimatePropertyValue(data: PropertyData, ufValue: number)
     If they are inconsistent (e.g., a height of 50 floors in a low-density residential zone), mark "is_consistent" as false and explain why in "observations".
   `;
 
-  console.log("Estimating property value with data:", JSON.stringify(data, null, 2));
+  console.log("Iniciando tasación para:", data.commune);
   try {
     const response = await ai.models.generateContent({
       model: "gemini-3.1-pro-preview",
