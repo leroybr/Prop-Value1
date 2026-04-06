@@ -25,6 +25,8 @@ export interface PropertyData {
   property_type: 'Departamento' | 'Casa' | 'Sitio Eriazo' | 'Oficina' | 'Local Comercial' | 'Agrícola / Parcela' | 'Teatro';
   rol_sii?: string;
   avaluo_fiscal?: number;
+  address_street?: string;
+  address_number?: string;
   commune: string;
   sector?: string;
   zoning_code?: string;
