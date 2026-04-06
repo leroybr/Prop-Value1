@@ -4,7 +4,8 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { PropertyData } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
-import { Info } from 'lucide-react';
+import { Info, Sparkles, Loader2 } from 'lucide-react';
+import { getRegulatoryData } from '../services/geminiService';
 
 const schema = z.object({
   valuation_type: z.enum(['basic', 'professional']),
@@ -141,6 +142,45 @@ export const ValuationForm: React.FC<Props> = ({ onSubmit, isLoading }) => {
 
   const [usageSearch, setUsageSearch] = React.useState("");
   const [showUsageOptions, setShowUsageOptions] = React.useState(false);
+  const [isFetchingNorms, setIsFetchingNorms] = React.useState(false);
+
+  const commune = watch("commune");
+  const sector = watch("sector");
+  const rol = watch("rol_sii");
+
+  const handleFetchNorms = async () => {
+    const apiKey = import.meta.env.VITE_GEMINI_API_KEY || 
+                   (typeof process !== 'undefined' ? process.env.GEMINI_API_KEY : null) ||
+                   (window as any).process?.env?.GEMINI_API_KEY;
+
+    if (!apiKey || apiKey === "undefined") {
+      alert("Error: No se ha configurado la clave de API de Gemini. Si estás en Vercel, agrégala como VITE_GEMINI_API_KEY y haz un 'Redeploy'.");
+      return;
+    }
+
+    if (!commune) {
+      alert("Por favor, selecciona una comuna primero.");
+      return;
+    }
+    
+    setIsFetchingNorms(true);
+    try {
+      const data = await getRegulatoryData(commune, sector || "", rol || "");
+      if (!data) throw new Error("No se recibieron datos de la IA.");
+      
+      setValue("zoning_code", data.zoning_code);
+      setValue("max_height", data.max_height);
+      setValue("constructability_index", data.constructability_index);
+      setValue("land_use_coefficient", data.land_use_coefficient);
+      setValue("property_usage", data.property_usage as any);
+      setUsageSearch(data.property_usage);
+    } catch (error) {
+      console.error("Error fetching norms:", error);
+      alert("No se pudo obtener la normativa automáticamente. Por favor, ingrésala manualmente.");
+    } finally {
+      setIsFetchingNorms(false);
+    }
+  };
 
   const filteredUsageOptions = usageOptions.filter(opt => 
     opt.toLowerCase().includes(usageSearch.toLowerCase())
@@ -365,7 +405,37 @@ export const ValuationForm: React.FC<Props> = ({ onSubmit, isLoading }) => {
       </div>
 
       {/* Contenedor 1: Normativa y Superficies */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4 md:gap-6 items-start">
+      <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm mb-8">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-blue-600" />
+            Normativa y Superficies
+          </h3>
+          <button
+            type="button"
+            onClick={handleFetchNorms}
+            disabled={isFetchingNorms || !commune}
+            className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold transition-all ${
+              isFetchingNorms 
+                ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
+                : 'bg-blue-600 text-white hover:bg-blue-700 shadow-md hover:shadow-blue-600/20 active:scale-95'
+            }`}
+          >
+            {isFetchingNorms ? (
+              <>
+                <Loader2 className="w-3 h-3 animate-spin" />
+                Consultando...
+              </>
+            ) : (
+              <>
+                <Sparkles className="w-3 h-3" />
+                Consultar Normativa Automática
+              </>
+            )}
+          </button>
+        </div>
+        
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4 md:gap-6 items-start">
           <div className="space-y-1">
             <label className="text-sm font-medium text-gray-600 flex items-center gap-1">
               Zona PRC
@@ -474,6 +544,7 @@ export const ValuationForm: React.FC<Props> = ({ onSubmit, isLoading }) => {
           {errors.m2_total && <p className="text-[10px] text-red-500">{errors.m2_total.message}</p>}
         </div>
       </div>
+    </div>
 
       {/* Contenedor 2: Edificación y Atributos */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4 md:gap-6 items-start">
