@@ -899,6 +899,7 @@ export default function App() {
                       <h4 className="text-[10px] font-bold text-blue-600 uppercase tracking-widest mb-1">Ubicación y Rol</h4>
                       <p className="text-sm text-slate-600 font-medium">
                         {valuation.property_data?.sector ? `${valuation.property_data.sector}, ` : ""}{valuation.property_data?.commune}
+                        {valuation.property_data?.zoning_code && ` • Zona: ${valuation.property_data.zoning_code}`}
                       </p>
                       <p className="text-xs text-slate-400">Rol SII: {valuation.property_data?.rol_sii || "No especificado"}</p>
                     </div>
@@ -971,6 +972,8 @@ export default function App() {
                     <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
                       <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3">Normativa Técnica (PRC)</h4>
                       <div className="grid grid-cols-2 gap-y-2 text-[10px]">
+                        <div className="text-slate-400">Zona PRC:</div>
+                        <div className="text-slate-800 font-bold text-right">{valuation.property_data?.zoning_code || "No especificada"}</div>
                         <div className="text-slate-400">Sup. Predial Mín:</div>
                         <div className="text-slate-800 font-bold text-right">{valuation.property_data?.min_lot_size || "N/A"} m²</div>
                         <div className="text-slate-400">Frente Predial Mín:</div>
@@ -1436,7 +1439,4 @@ export default function App() {
             </motion.div>
           </motion.div>
         )}
-      </AnimatePresence>
-    </div>
-  );
-}
+ 
