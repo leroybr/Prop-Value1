@@ -15,7 +15,7 @@ import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 
 export default function App() {
-  const { user, loading: authLoading, login, logout } = useFirebase();
+  const { user, loading: authLoading, authActionLoading, login, logout } = useFirebase();
   const [valuation, setValuation] = useState<ValuationResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [marketStats, setMarketStats] = useState<MarketStat[]>([]);
@@ -559,15 +559,27 @@ export default function App() {
                   <img src={user.photoURL || ''} alt={user.displayName || ''} className="w-8 h-8 rounded-full border border-gray-200" referrerPolicy="no-referrer" />
                   <span className="font-semibold">{user.displayName}</span>
                 </div>
-                <button onClick={logout} className="flex items-center gap-1 text-red-600 hover:text-red-700 transition-colors">
+                <button 
+                  onClick={logout} 
+                  disabled={authActionLoading}
+                  className="flex items-center gap-1 text-red-600 hover:text-red-700 transition-colors disabled:opacity-50"
+                >
                   <LogOut className="w-4 h-4" />
-                  Salir
+                  {authActionLoading ? 'Saliendo...' : 'Salir'}
                 </button>
               </div>
             ) : (
-              <button onClick={login} className="flex items-center gap-2 bg-blue-600 text-white px-4 py-1 rounded-md font-semibold hover:bg-blue-700 transition-colors">
-                <LogIn className="w-4 h-4" />
-                Ingresar
+              <button 
+                onClick={login} 
+                disabled={authActionLoading}
+                className="flex items-center gap-2 bg-blue-600 text-white px-4 py-1 rounded-md font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50"
+              >
+                {authActionLoading ? (
+                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-white/20 border-t-white" />
+                ) : (
+                  <LogIn className="w-4 h-4" />
+                )}
+                {authActionLoading ? 'Cargando...' : 'Ingresar'}
               </button>
             )}
           </div>
@@ -624,19 +636,25 @@ export default function App() {
                     </div>
                     <button 
                       onClick={() => { logout(); setIsMobileMenuOpen(false); }}
-                      className="flex items-center justify-center gap-2 p-3 text-red-600 font-semibold bg-red-50 rounded-md"
+                      disabled={authActionLoading}
+                      className="flex items-center justify-center gap-2 p-3 text-red-600 font-semibold bg-red-50 rounded-md disabled:opacity-50"
                     >
                       <LogOut className="w-5 h-5" />
-                      Cerrar Sesión
+                      {authActionLoading ? 'Cargando...' : 'Cerrar Sesión'}
                     </button>
                   </div>
                 ) : (
                   <button 
                     onClick={() => { login(); setIsMobileMenuOpen(false); }}
-                    className="flex items-center justify-center gap-2 p-2 bg-blue-600 text-white font-semibold rounded-md shadow-lg"
+                    disabled={authActionLoading}
+                    className="flex items-center justify-center gap-2 p-2 bg-blue-600 text-white font-semibold rounded-md shadow-lg disabled:opacity-50"
                   >
-                    <LogIn className="w-5 h-5" />
-                    Ingresar con Google
+                    {authActionLoading ? (
+                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-white/20 border-t-white" />
+                    ) : (
+                      <LogIn className="w-5 h-5" />
+                    )}
+                    {authActionLoading ? 'Cargando...' : 'Ingresar con Google'}
                   </button>
                 )}
               </div>
