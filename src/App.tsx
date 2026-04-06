@@ -27,7 +27,15 @@ export default function App() {
   const [isDownloading, setIsDownloading] = useState(false);
   const [showReport, setShowReport] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [apiKeyError, setApiKeyError] = useState<string | null>(null);
   const reportRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const key = import.meta.env.VITE_GEMINI_API_KEY;
+    if (!key || key === "undefined") {
+      setApiKeyError("Falta la clave de API de Gemini (VITE_GEMINI_API_KEY) en Vercel. Las tasaciones no funcionarán hasta que la agregues.");
+    }
+  }, []);
 
   const formatCurrency = (uf: number) => {
     const clp = uf * ufValue;
@@ -282,6 +290,16 @@ export default function App() {
 
   const handleValuation = async (data: PropertyData) => {
     console.log("handleValuation called with data:", JSON.stringify(data, null, 2));
+    
+    const apiKey = import.meta.env.VITE_GEMINI_API_KEY || 
+                   (typeof process !== 'undefined' ? process.env.GEMINI_API_KEY : null) ||
+                   (window as any).process?.env?.GEMINI_API_KEY;
+
+    if (!apiKey || apiKey === "undefined") {
+      alert("Error: No se ha configurado la clave de API de Gemini. Si estás en Vercel, agrégala como VITE_GEMINI_API_KEY y haz un 'Redeploy'.");
+      return;
+    }
+
     if (!user) {
       console.warn("User not logged in, cannot perform valuation");
       alert("Por favor, inicia sesión para realizar una tasación.");
@@ -428,6 +446,20 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900 font-sans">
+      {/* API Key Error Banner */}
+      {apiKeyError && (
+        <div className="bg-red-600 text-white px-4 py-2 text-center text-xs font-bold sticky top-0 z-[60] shadow-lg flex items-center justify-center gap-2">
+          <Info className="w-4 h-4" />
+          {apiKeyError}
+          <button 
+            onClick={() => window.open('https://vercel.com/dashboard', '_blank')}
+            className="underline hover:text-white/80"
+          >
+            Configurar en Vercel
+          </button>
+        </div>
+      )}
+
       {/* Loading Overlay */}
       <AnimatePresence>
         {isLoading && (
