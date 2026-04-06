@@ -282,7 +282,18 @@ export default function App() {
         { price_uf: 5400, m2: 75, distance_km: 0.2, source: "Venta Reciente CBRS - El Golf" },
         { price_uf: 5150, m2: 72, distance_km: 0.4, source: "Portal Inmobiliario - Depto Similar" },
         { price_uf: 5300, m2: 78, distance_km: 0.6, source: "TocToc - Oferta Competitiva" }
-      ]
+      ],
+      property_data: {
+        valuation_type: 'professional',
+        property_type: 'Departamento',
+        commune: 'Las Condes',
+        sector: 'El Golf',
+        m2_total: 85,
+        m2_useful: 78,
+        bedrooms: 2,
+        bathrooms: 2,
+        client_name: 'Particular (Demo)'
+      }
     };
     setValuation(mockValuation);
     setShowReport(true);
@@ -882,21 +893,21 @@ export default function App() {
                   <div className="space-y-4">
                     <div>
                       <h4 className="text-[10px] font-bold text-blue-600 uppercase tracking-widest mb-1">Solicitante / Cliente</h4>
-                      <p className="text-lg font-bold text-slate-800">{valuation.property_data.client_name || "Particular"}</p>
+                      <p className="text-lg font-bold text-slate-800">{valuation.property_data?.client_name || "Particular"}</p>
                     </div>
                     <div>
                       <h4 className="text-[10px] font-bold text-blue-600 uppercase tracking-widest mb-1">Ubicación y Rol</h4>
                       <p className="text-sm text-slate-600 font-medium">
-                        {valuation.property_data.sector ? `${valuation.property_data.sector}, ` : ""}{valuation.property_data.commune}
+                        {valuation.property_data?.sector ? `${valuation.property_data.sector}, ` : ""}{valuation.property_data?.commune}
                       </p>
-                      <p className="text-xs text-slate-400">Rol SII: {valuation.property_data.rol_sii || "No especificado"}</p>
+                      <p className="text-xs text-slate-400">Rol SII: {valuation.property_data?.rol_sii || "No especificado"}</p>
                     </div>
                   </div>
-                  {valuation.property_data.sector_description && (
+                  {valuation.property_data?.sector_description && (
                     <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
                       <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Descripción del Entorno</h4>
                       <p className="text-xs text-slate-600 leading-relaxed italic">
-                        {valuation.property_data.sector_description}
+                        {valuation.property_data?.sector_description}
                       </p>
                     </div>
                   )}
@@ -961,22 +972,22 @@ export default function App() {
                       <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3">Normativa Técnica (PRC)</h4>
                       <div className="grid grid-cols-2 gap-y-2 text-[10px]">
                         <div className="text-slate-400">Sup. Predial Mín:</div>
-                        <div className="text-slate-800 font-bold text-right">{valuation.property_data.min_lot_size || "N/A"} m²</div>
+                        <div className="text-slate-800 font-bold text-right">{valuation.property_data?.min_lot_size || "N/A"} m²</div>
                         <div className="text-slate-400">Frente Predial Mín:</div>
-                        <div className="text-slate-800 font-bold text-right">{valuation.property_data.min_frontage || "N/A"} m</div>
+                        <div className="text-slate-800 font-bold text-right">{valuation.property_data?.min_frontage || "N/A"} m</div>
                         <div className="text-slate-400">Ocupación Suelo:</div>
-                        <div className="text-slate-800 font-bold text-right">{(valuation.property_data.land_use_coefficient || 0) * 100}%</div>
+                        <div className="text-slate-800 font-bold text-right">{(valuation.property_data?.land_use_coefficient || 0) * 100}%</div>
                         <div className="text-slate-400">Constructibilidad:</div>
-                        <div className="text-slate-800 font-bold text-right">{valuation.property_data.constructability_index || "N/A"}</div>
+                        <div className="text-slate-800 font-bold text-right">{valuation.property_data?.constructability_index || "N/A"}</div>
                         <div className="text-slate-400">Agrupamiento:</div>
-                        <div className="text-slate-800 font-bold text-right">{valuation.property_data.grouping || "N/A"}</div>
+                        <div className="text-slate-800 font-bold text-right">{valuation.property_data?.grouping || "N/A"}</div>
                         <div className="text-slate-400">Altura Máxima:</div>
-                        <div className="text-slate-800 font-bold text-right">{valuation.property_data.max_height || "Libre"}</div>
+                        <div className="text-slate-800 font-bold text-right">{valuation.property_data?.max_height || "Libre"}</div>
                       </div>
-                      {(valuation.property_data.cip_status || valuation.property_data.expropriation_status) && (
+                      {(valuation.property_data?.cip_status || valuation.property_data?.expropriation_status) && (
                         <div className="mt-3 pt-3 border-t border-slate-200 space-y-1">
-                          {valuation.property_data.cip_status && <p className="text-[9px] text-amber-600 font-medium">⚠️ CIP: {valuation.property_data.cip_status}</p>}
-                          {valuation.property_data.expropriation_status && <p className="text-[9px] text-amber-600 font-medium">⚠️ Expropiación: {valuation.property_data.expropriation_status}</p>}
+                          {valuation.property_data?.cip_status && <p className="text-[9px] text-amber-600 font-medium">⚠️ CIP: {valuation.property_data.cip_status}</p>}
+                          {valuation.property_data?.expropriation_status && <p className="text-[9px] text-amber-600 font-medium">⚠️ Expropiación: {valuation.property_data.expropriation_status}</p>}
                         </div>
                       )}
                     </div>
@@ -1140,30 +1151,30 @@ export default function App() {
                       <div className="grid grid-cols-2 gap-4 border-b border-slate-200 pb-4">
                         <div>
                           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Estructura Muros</p>
-                          <p className="font-medium text-slate-700">{valuation.property_data.structure_muros || "No especificado"}</p>
+                          <p className="font-medium text-slate-700">{valuation.property_data?.structure_muros || "No especificado"}</p>
                         </div>
                         <div>
                           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Entrepiso</p>
-                          <p className="font-medium text-slate-700">{valuation.property_data.structure_entrepiso || "No especificado"}</p>
+                          <p className="font-medium text-slate-700">{valuation.property_data?.structure_entrepiso || "No especificado"}</p>
                         </div>
                       </div>
                       <div className="grid grid-cols-2 gap-4 border-b border-slate-200 pb-4">
                         <div>
                           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Techumbre</p>
-                          <p className="font-medium text-slate-700">{valuation.property_data.structure_techumbre || "No especificado"}</p>
+                          <p className="font-medium text-slate-700">{valuation.property_data?.structure_techumbre || "No especificado"}</p>
                         </div>
                         <div>
                           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Terminaciones</p>
                           <p className="text-xs text-slate-600">
-                            {valuation.property_data.finishes_walls ? `Muros: ${valuation.property_data.finishes_walls}. ` : ""}
-                            {valuation.property_data.finishes_floors ? `Pisos: ${valuation.property_data.finishes_floors}. ` : ""}
+                            {valuation.property_data?.finishes_walls ? `Muros: ${valuation.property_data.finishes_walls}. ` : ""}
+                            {valuation.property_data?.finishes_floors ? `Pisos: ${valuation.property_data.finishes_floors}. ` : ""}
                           </p>
                         </div>
                       </div>
                       <div>
                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Distribución</p>
                         <p className="text-xs text-slate-600 leading-relaxed italic">
-                          {valuation.property_data.distribution_description || "No especificado"}
+                          {valuation.property_data?.distribution_description || "No especificado"}
                         </p>
                       </div>
                     </div>
@@ -1178,13 +1189,13 @@ export default function App() {
                       <div className="grid grid-cols-2 gap-6">
                         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
                           <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest mb-2">Permiso Edificación</p>
-                          <p className="text-sm font-bold text-slate-800">{valuation.property_data.permit_number || "S/N"}</p>
-                          <p className="text-[10px] text-slate-400 mt-1">{valuation.property_data.permit_date || "Fecha no registrada"}</p>
+                          <p className="text-sm font-bold text-slate-800">{valuation.property_data?.permit_number || "S/N"}</p>
+                          <p className="text-[10px] text-slate-400 mt-1">{valuation.property_data?.permit_date || "Fecha no registrada"}</p>
                         </div>
                         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
                           <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest mb-2">Recepción Final</p>
-                          <p className="text-sm font-bold text-slate-800">{valuation.property_data.reception_number || "S/N"}</p>
-                          <p className="text-[10px] text-slate-400 mt-1">{valuation.property_data.reception_date || "Fecha no registrada"}</p>
+                          <p className="text-sm font-bold text-slate-800">{valuation.property_data?.reception_number || "S/N"}</p>
+                          <p className="text-[10px] text-slate-400 mt-1">{valuation.property_data?.reception_date || "Fecha no registrada"}</p>
                         </div>
                       </div>
                       <div className="bg-amber-50 p-4 rounded-xl border border-amber-100">
@@ -1193,8 +1204,8 @@ export default function App() {
                           Observaciones Legales
                         </p>
                         <p className="text-[10px] text-amber-900 leading-relaxed italic">
-                          {valuation.property_data.cip_status ? `CIP: ${valuation.property_data.cip_status}. ` : ""}
-                          {valuation.property_data.expropriation_status ? `Expropiación: ${valuation.property_data.expropriation_status}. ` : ""}
+                          {valuation.property_data?.cip_status ? `CIP: ${valuation.property_data.cip_status}. ` : ""}
+                          {valuation.property_data?.expropriation_status ? `Expropiación: ${valuation.property_data.expropriation_status}. ` : ""}
                           Se recomienda validación en DOM Concepción.
                         </p>
                       </div>
