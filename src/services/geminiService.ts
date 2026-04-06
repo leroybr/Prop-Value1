@@ -400,4 +400,3 @@ export async function estimatePropertyValue(data: PropertyData, ufValue: number)
     throw error;
   }
 }
-
