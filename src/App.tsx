@@ -31,11 +31,6 @@ export default function App() {
   const [firestoreError, setFirestoreError] = useState<Error | null>(null);
   const reportRef = useRef<HTMLDivElement>(null);
 
-  // Trigger ErrorBoundary for async Firestore errors
-  if (firestoreError) {
-    throw firestoreError;
-  }
-
   useEffect(() => {
     const key = import.meta.env.VITE_GEMINI_API_KEY;
     if (!key || key === "undefined") {
@@ -273,8 +268,8 @@ export default function App() {
       // Sort client-side to avoid requiring a composite index (userId + createdAt)
       // which often causes "FAILED_PRECONDITION" errors for new users
       const sortedValuations = [...valuations].sort((a, b) => {
-        const dateA = a.createdAt?.seconds || 0;
-        const dateB = b.createdAt?.seconds || 0;
+        const dateA = (a.createdAt as any)?.seconds || 0;
+        const dateB = (b.createdAt as any)?.seconds || 0;
         return dateB - dateA;
       });
       
@@ -522,6 +517,20 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900 font-sans">
+      {/* Firestore Error Banner */}
+      {firestoreError && (
+        <div className="bg-amber-600 text-white px-4 py-2 text-center text-xs font-bold sticky top-0 z-[60] shadow-lg flex items-center justify-center gap-2">
+          <Info className="w-4 h-4" />
+          Hubo un problema al cargar tus datos. Es posible que algunas funciones no estén disponibles.
+          <button 
+            onClick={() => setFirestoreError(null)}
+            className="ml-4 bg-white/20 px-2 py-1 rounded hover:bg-white/30"
+          >
+            Ignorar
+          </button>
+        </div>
+      )}
+
       {/* API Key Error Banner */}
       {apiKeyError && (
         <div className="bg-red-600 text-white px-4 py-2 text-center text-xs font-bold sticky top-0 z-[60] shadow-lg flex items-center justify-center gap-2">
@@ -1552,3 +1561,4 @@ export default function App() {
     </div>
   );
 }
+
