@@ -28,7 +28,13 @@ export default function App() {
   const [showReport, setShowReport] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [apiKeyError, setApiKeyError] = useState<string | null>(null);
+  const [firestoreError, setFirestoreError] = useState<Error | null>(null);
   const reportRef = useRef<HTMLDivElement>(null);
+
+  // Trigger ErrorBoundary for async Firestore errors
+  if (firestoreError) {
+    throw firestoreError;
+  }
 
   useEffect(() => {
     const key = import.meta.env.VITE_GEMINI_API_KEY;
@@ -85,18 +91,20 @@ export default function App() {
       })) as unknown as Project[];
       setProjects(projectList);
       
-      // Seed mock data if empty
-      if (projectList.length === 0) {
+      // Seed mock data if empty and user is admin
+      if (projectList.length === 0 && user?.email === "janiceleroy@gmail.com") {
         seedMockProjects();
       }
     }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, 'projects');
+      // Don't crash for project listing, just log
+      console.error("Error fetching projects:", error);
     });
     return () => unsubscribe();
   }, []);
 
   const seedMockProjects = async () => {
-    const mockProjects: Partial<Project>[] = [
+    try {
+      const mockProjects: Partial<Project>[] = [
       {
         name: "Edificio Biobío Central",
         developer: "Inmobiliaria Sur",
@@ -238,6 +246,9 @@ export default function App() {
     for (const p of mockProjects) {
       await addDoc(collection(db, 'projects'), p);
     }
+    } catch (error) {
+      console.error("Error seeding projects:", error);
+    }
   };
 
   // Sync valuations from Firestore
@@ -250,8 +261,7 @@ export default function App() {
     const q = query(
       collection(db, 'valuations'),
       where('userId', '==', user.uid),
-      orderBy('createdAt', 'desc'),
-      limit(10)
+      limit(20) // Increased limit since we sort client-side
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -259,9 +269,22 @@ export default function App() {
         id: doc.id,
         ...doc.data()
       })) as unknown as ValuationResult[];
-      setHistory(valuations);
+      
+      // Sort client-side to avoid requiring a composite index (userId + createdAt)
+      // which often causes "FAILED_PRECONDITION" errors for new users
+      const sortedValuations = [...valuations].sort((a, b) => {
+        const dateA = a.createdAt?.seconds || 0;
+        const dateB = b.createdAt?.seconds || 0;
+        return dateB - dateA;
+      });
+      
+      setHistory(sortedValuations);
     }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, 'valuations');
+      try {
+        handleFirestoreError(error, OperationType.LIST, 'valuations');
+      } catch (e: any) {
+        setFirestoreError(e);
+      }
     });
 
     return () => unsubscribe();
@@ -360,25 +383,34 @@ export default function App() {
   };
 
   const downloadPDF = async () => {
-    if (!reportRef.current || !valuation) return;
+    if (!reportRef.current || !valuation) {
+      console.error("Cannot download PDF: reportRef or valuation missing", { reportRef: !!reportRef.current, valuation: !!valuation });
+      return;
+    }
     
     setIsDownloading(true);
+    console.log("Starting PDF generation...");
+
     try {
-      // Ensure the element is visible and scrolled to top for capture
       const element = reportRef.current;
       
-      // Use html2canvas with better options for production/Vercel
+      // Wait for any animations or images to settle
+      await new Promise(resolve => setTimeout(resolve, 800));
+
+      // Use html2canvas with optimized options
       const canvas = await html2canvas(element, {
-        scale: 3, // Higher scale for better PDF quality
-        useCORS: true, // Crucial for external images
-        allowTaint: true,
-        logging: false,
-        backgroundColor: "#ffffff", // Ensure white background
-        windowWidth: element.scrollWidth,
-        windowHeight: element.scrollHeight,
+        scale: 2, // Scale 2 is a good balance between quality and performance
+        useCORS: true,
+        allowTaint: false, // Set to false when using useCORS to avoid tainting the canvas
+        logging: true,
+        backgroundColor: "#ffffff",
+        imageTimeout: 15000,
+        removeContainer: true,
       });
       
-      const imgData = canvas.toDataURL('image/jpeg', 1.0);
+      console.log("Canvas captured successfully");
+      
+      const imgData = canvas.toDataURL('image/jpeg', 0.95);
       const pdf = new jsPDF({
         orientation: 'p',
         unit: 'mm',
@@ -386,25 +418,41 @@ export default function App() {
         compress: true
       });
       
+      const imgProps = pdf.getImageProperties(imgData);
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = pdf.internal.pageSize.getHeight();
-      const imgProps = pdf.getImageProperties(imgData);
       const imgHeight = (imgProps.height * pdfWidth) / imgProps.width;
       
-      // If content is longer than one page, we might need to handle it, 
-      // but for this report one page is usually enough or we can scale it.
-      pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, imgHeight, undefined, 'FAST');
+      // Multi-page logic
+      let heightLeft = imgHeight;
+      let position = 0;
+
+      // Add first page
+      pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, imgHeight, undefined, 'FAST');
+      heightLeft -= pdfHeight;
+
+      // Add subsequent pages if content is long
+      while (heightLeft >= 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, imgHeight, undefined, 'FAST');
+        heightLeft -= pdfHeight;
+      }
       
       const fileName = `Tasacion_${valuation.estimated_price_uf}UF_${new Date().toISOString().split('T')[0]}.pdf`;
       pdf.save(fileName);
+      console.log("PDF saved successfully:", fileName);
       
-      console.log("PDF generated successfully:", fileName);
     } catch (error) {
       console.error("Error generating PDF:", error);
-      alert("Hubo un error al generar el PDF. Por favor, inténtalo de nuevo.");
+      alert("Hubo un error al generar el PDF. Por favor, inténtalo de nuevo. Si el error persiste, intenta usar la opción de Imprimir.");
     } finally {
       setIsDownloading(false);
     }
+  };
+
+  const handlePrint = () => {
+    window.print();
   };
 
   if (showSplash) {
@@ -1439,4 +1487,68 @@ export default function App() {
                             <th className="px-6 py-4 text-right">Precio (UF)</th>
                             <th className="px-6 py-4 text-right">Superficie (m²)</th>
                             <th className="px-6 py-4 text-right">Distancia</th>
- 
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                          {valuation.comparables.map((comp, idx) => (
+                            <tr key={idx} className="text-sm hover:bg-gray-50 transition-colors">
+                              <td className="px-6 py-4 font-medium text-slate-800">{comp.source}</td>
+                              <td className="px-6 py-4 text-right font-bold text-blue-600">{comp.price_uf.toLocaleString()} UF</td>
+                              <td className="px-6 py-4 text-right">{comp.m2} m²</td>
+                              <td className="px-6 py-4 text-right text-slate-500">{comp.distance_km} km</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {/* Footer / Disclaimer */}
+                <div className="pt-8 border-t border-gray-100 text-[10px] text-gray-400 leading-relaxed">
+                  <p className="mb-2 font-bold">Aviso Legal:</p>
+                  <p>
+                    Este informe es una estimación generada mediante modelos de inteligencia artificial y análisis de datos masivos (Big Data). 
+                    No constituye una tasación bancaria oficial ni legal. Los valores pueden variar según condiciones específicas del inmueble 
+                    no detectadas por el modelo. Se recomienda la validación por un tasador certificado para operaciones financieras críticas.
+                  </p>
+                </div>
+              </div>
+
+              {/* Modal Actions */}
+              <div className="p-6 bg-gray-50 border-t border-gray-100 flex justify-between items-center sticky bottom-0 z-20">
+                <button 
+                  onClick={() => setShowReport(false)}
+                  className="text-gray-500 font-semibold hover:text-gray-700 transition-colors"
+                >
+                  Cerrar Vista
+                </button>
+                <div className="flex gap-3">
+                  <button 
+                    onClick={handlePrint}
+                    className="flex items-center gap-2 bg-white text-slate-600 border border-slate-200 px-6 py-3 rounded-md font-semibold hover:bg-slate-50 transition-all"
+                  >
+                    <FileText className="w-5 h-5" />
+                    Imprimir
+                  </button>
+                  <button 
+                    onClick={downloadPDF}
+                    disabled={isDownloading}
+                    className="flex items-center gap-2 bg-blue-600 text-white px-8 py-3 rounded-md font-semibold hover:bg-blue-700 transition-all shadow-lg disabled:opacity-50"
+                  >
+                    {isDownloading ? (
+                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-white/20 border-t-white" />
+                    ) : (
+                      <Download className="w-5 h-5" />
+                    )}
+                    {isDownloading ? "Procesando..." : "Descargar PDF"}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
