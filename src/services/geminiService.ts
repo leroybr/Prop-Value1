@@ -22,14 +22,24 @@ function getAi() {
   return aiInstance;
 }
 
-export async function getRegulatoryData(commune: string, sector: string, rol: string, street?: string, number?: string): Promise<{
+export async function getRegulatoryData(
+  commune: string, 
+  sector: string, 
+  rol: string, 
+  street?: string, 
+  number?: string,
+  rolManzana?: string,
+  rolPredio?: string,
+  currentZoningCode?: string
+): Promise<{
   zoning_code: string;
   max_height: number;
   constructability_index: number;
   land_use_coefficient: number;
   property_usage: string;
+  setback: string;
 }> {
-  console.log("Consultando normativa detallada para:", { commune, sector, rol, street, number });
+  console.log("Consultando normativa detallada para:", { commune, sector, rol, street, number, rolManzana, rolPredio, currentZoningCode });
   const ai = getAi();
   const prompt = `
     Act as a Senior Chilean Urban Planning Expert (Arquitecto Revisor DOM). 
@@ -39,20 +49,48 @@ export async function getRegulatoryData(commune: string, sector: string, rol: st
     - Commune: ${commune}
     - Sector/Neighborhood: ${sector}
     - Address: ${street || ""} ${number || ""}
-    - Rol SII: ${rol}
+    - Rol SII (Combined): ${rol}
+    - Rol SII (Manzana): ${rolManzana || "Not specified"}
+    - Rol SII (Predio): ${rolPredio || "Not specified"}
+    - User-Provided Zoning Code (Zona PRC): ${currentZoningCode || "Not specified"}
     
-    Context for Concepción:
+    Context for PRC Structure:
+    The regulatory ordinance (Ordenanza del Plano Regulador) defines zones (e.g., ZM-1, CPH, ESC1) and for each zone, it specifies:
+    - USOS DE SUELO (Permitted, Conditioned, Prohibited).
+    - CONDICIONES DE SUBDIVISIÓN Y EDIFICACIÓN:
+        - Superficie Predial Mínima.
+        - Coeficiente Máximo de Ocupación de Suelo.
+        - Coeficiente Máximo de Constructibilidad.
+        - Altura Máxima de Edificación.
+        - Sistema de Agrupamiento (Aislado, Pareado, Continuo).
+        - Antejardín Mínimo.
+        - Densidad Habitacional Máxima.
+    
+    Example for ZM-1 (Zona Mixta):
+    - Altura Máxima: 45 m.
+    - Coef. Constructibilidad: 2.5 (extensión) / 12 (altura).
+    - Antejardín: 3 m.
+    
+    Specific Knowledge for Concepción:
+    - Manzana 1172 in Concepción corresponds to zone "ESC1". This is a fixed rule.
     - If the sector is "Centro", the zone is almost certainly "CPH" (Centro de Protección Histórica).
     - CPH zones (Centro de Protección Histórica) are the most important zones in Concepción Centro.
-    - Other zones in Concepción include "CC" (Centro Comercial), "CU" (Centro Urbano), "H" (Habitacional).
-    - If the user specifies "Centro" in Concepción, prioritize returning "CPH" as the zoning_code.
+    - Other zones in Concepción include "CC" (Centro Comercial), "CU" (Centro Urbano), "H" (Habitacional), "ESC" (Equipamiento/Servicios).
+    - If the user specifies "Centro" in Concepción, prioritize returning "CPH" as the zoning_code, UNLESS the Manzana indicates otherwise (like 1172 -> ESC1).
+    - If the user has provided a Zoning Code (Zona PRC) like "ESC1" and it matches the Manzana (like 1172), DO NOT change it to "CPH".
+    
+    Instructions:
+    1. Extract the specific values for the identified zone from the PRC.
+    2. If a User-Provided Zoning Code is present and it is a valid zone for the commune, prioritize using it to find the other values.
+    3. For Manzana 1172 in Concepción, the zone MUST be "ESC1".
     
     Provide the following data in JSON format:
-    - zoning_code: The specific zone code (e.g., ZH-1, RM-2, CPH, CC, H-1).
-    - max_height: Maximum built height allowed in meters (number). If expressed in floors, assume 3 meters per floor.
+    - zoning_code: The specific zone code (e.g., ZH-1, RM-2, CPH, CC, H-1, ESC1, ZM-1).
+    - max_height: Maximum built height allowed in meters (number).
     - constructability_index: Coefficient of constructability (number).
     - land_use_coefficient: Land occupation coefficient (number).
     - property_usage: Primary allowed usage (Habitacional, Comercial, Agrícola, or Esparcimiento o Cultura).
+    - setback: Minimum setback (Antejardín) in meters or description (string, e.g., "3 m", "No se exige").
     
     Important: If you find multiple sub-zones, provide the data for the most restrictive or most common one in that specific sector.
   `;
@@ -70,9 +108,10 @@ export async function getRegulatoryData(commune: string, sector: string, rol: st
             max_height: { type: Type.NUMBER },
             constructability_index: { type: Type.NUMBER },
             land_use_coefficient: { type: Type.NUMBER },
-            property_usage: { type: Type.STRING }
+            property_usage: { type: Type.STRING },
+            setback: { type: Type.STRING }
           },
-          required: ["zoning_code", "max_height", "constructability_index", "land_use_coefficient", "property_usage"]
+          required: ["zoning_code", "max_height", "constructability_index", "land_use_coefficient", "property_usage", "setback"]
         }
       }
     });
@@ -104,7 +143,9 @@ export async function estimatePropertyValue(data: PropertyData, ufValue: number)
     - Commune: ${data.commune}
     - Sector/Neighborhood: ${data.sector || "Not specified"}
     - Sector Description: ${data.sector_description || "Not specified"}
-    - Rol SII: ${data.rol_sii || "Not provided"}
+    - Rol SII (Combined): ${data.rol_sii || "Not provided"}
+    - Rol SII (Manzana): ${data.rol_manzana || "Not provided"}
+    - Rol SII (Predio): ${data.rol_predio || "Not provided"}
     - Avalúo Fiscal (CLP): ${data.avaluo_fiscal || "Not provided"}
     - Zoning Code (Plano Regulador): ${data.zoning_code || "Not specified"}
     - Destino (Usage): ${data.property_usage || "Not specified"}
@@ -192,6 +233,7 @@ export async function estimatePropertyValue(data: PropertyData, ufValue: number)
     - Current UF Value: ${ufValue} CLP.
     - Consider the "Plano Regulador Comunal" (PRC) constraints for ${data.commune}${data.sector ? ` in ${data.sector}` : ""}.
     - If Rol SII is provided, consider its impact on tax assessment and specific location.
+    - Specific Knowledge for Concepción: Manzana 1172 corresponds to zone "ESC1". CPH is the most common zone in the "Centro" sector.
     - Analyze the development potential based on the zoning code (${data.zoning_code || "Not specified"}).
     - Use the user-provided urban norms if available: Max Height (${data.max_height || "Not specified"}), Constructability Index (${data.constructability_index || "Not specified"}).
     - Focus on the specific dynamics of ${data.commune} (e.g., proximity to Metro, security trends, new developments).
