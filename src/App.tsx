@@ -300,7 +300,7 @@ export default function App() {
   };
 
   const handleValuation = async (data: PropertyData) => {
-    console.log("handleValuation called with data:", JSON.stringify(data, null, 2));
+    console.log("handleValuation called with data:", data);
     
     const apiKey = import.meta.env.VITE_GEMINI_API_KEY || 
                    (typeof process !== 'undefined' ? process.env.GEMINI_API_KEY : null) ||
@@ -332,7 +332,7 @@ export default function App() {
         timeoutPromise
       ]) as ValuationResult;
 
-      console.log("estimatePropertyValue success, result:", JSON.stringify(result, null, 2));
+      console.log("estimatePropertyValue success, result:", result);
       setValuation(result);
       setShowReport(true);
       
@@ -446,9 +446,26 @@ export default function App() {
             className="mt-24 w-full border-y border-zinc-200 py-10 flex flex-col md:flex-row items-center justify-center gap-6 md:gap-12 text-zinc-800 text-xs font-medium tracking-[0.3em] uppercase"
           >
             <span className="animate-pulse">Valoriza tu propiedad hoy</span>
-            <div className="border border-zinc-800 px-8 py-3 hover:bg-zinc-800 hover:text-white transition-all duration-300">
-              Ingresa aquí
-            </div>
+            <button 
+              onClick={(e) => {
+                e.stopPropagation();
+                if (user) {
+                  setShowSplash(false);
+                } else {
+                  login();
+                }
+              }}
+              disabled={authActionLoading}
+              className="border border-zinc-800 px-8 py-3 hover:bg-zinc-800 hover:text-white transition-all duration-300 flex items-center gap-2 disabled:opacity-50"
+            >
+              {authActionLoading ? (
+                <div className="w-4 h-4 border-2 border-zinc-800 border-t-transparent rounded-full animate-spin" />
+              ) : user ? (
+                <>Continuar <CheckCircle2 className="w-4 h-4" /></>
+              ) : (
+                <>Ingresar con Google <LogIn className="w-4 h-4" /></>
+              )}
+            </button>
           </motion.div>
         </motion.div>
       </motion.div>
@@ -552,6 +569,43 @@ export default function App() {
                 {projects.length}
               </span>
             </button>
+
+            <div className="h-6 w-px bg-gray-200 mx-2" />
+
+            {user ? (
+              <div className="flex items-center gap-3">
+                <div className="flex flex-col items-end">
+                  <span className="text-[10px] text-gray-400 uppercase tracking-tighter">Usuario</span>
+                  <span className="text-xs font-bold text-slate-800">{user.displayName || user.email}</span>
+                </div>
+                {user.photoURL && (
+                  <img src={user.photoURL} alt="Profile" className="w-8 h-8 rounded-full border border-gray-200" referrerPolicy="no-referrer" />
+                )}
+                <button 
+                  onClick={logout}
+                  className="p-2 text-gray-400 hover:text-red-600 transition-colors"
+                  title="Cerrar Sesión"
+                >
+                  <LogOut className="w-5 h-5" />
+                </button>
+              </div>
+            ) : (
+              <button 
+                onClick={login}
+                disabled={authActionLoading}
+                className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-all shadow-md hover:shadow-blue-600/20 disabled:opacity-50"
+              >
+                {authActionLoading ? (
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <>
+                    <LogIn className="w-4 h-4" />
+                    <span>Ingresar</span>
+                  </>
+                )}
+              </button>
+            )}
+
             <div className="bg-blue-50 text-blue-700 px-3 py-1 rounded-md text-xs font-bold flex items-center gap-2">
               <span className="text-[10px] text-blue-400 uppercase tracking-tighter">UF Hoy:</span>
               ${ufValue.toLocaleString('es-CL')}
@@ -1385,58 +1439,4 @@ export default function App() {
                             <th className="px-6 py-4 text-right">Precio (UF)</th>
                             <th className="px-6 py-4 text-right">Superficie (m²)</th>
                             <th className="px-6 py-4 text-right">Distancia</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100">
-                          {valuation.comparables.map((comp, idx) => (
-                            <tr key={idx} className="text-sm hover:bg-gray-50 transition-colors">
-                              <td className="px-6 py-4 font-medium text-slate-800">{comp.source}</td>
-                              <td className="px-6 py-4 text-right font-bold text-blue-600">{comp.price_uf.toLocaleString()} UF</td>
-                              <td className="px-6 py-4 text-right">{comp.m2} m²</td>
-                              <td className="px-6 py-4 text-right text-slate-500">{comp.distance_km} km</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                )}
-
-                {/* Footer / Disclaimer */}
-                <div className="pt-8 border-t border-gray-100 text-[10px] text-gray-400 leading-relaxed">
-                  <p className="mb-2 font-bold">Aviso Legal:</p>
-                  <p>
-                    Este informe es una estimación generada mediante modelos de inteligencia artificial y análisis de datos masivos (Big Data). 
-                    No constituye una tasación bancaria oficial ni legal. Los valores pueden variar según condiciones específicas del inmueble 
-                    no detectadas por el modelo. Se recomienda la validación por un tasador certificado para operaciones financieras críticas.
-                  </p>
-                </div>
-              </div>
-
-              {/* Modal Actions */}
-              <div className="p-6 bg-gray-50 border-t border-gray-100 flex justify-between items-center sticky bottom-0 z-20">
-                <button 
-                  onClick={() => setShowReport(false)}
-                  className="text-gray-500 font-semibold hover:text-gray-700 transition-colors"
-                >
-                  Cerrar Vista
-                </button>
-                <div className="flex gap-3">
-                  <button 
-                    onClick={downloadPDF}
-                    disabled={isDownloading}
-                    className="flex items-center gap-2 bg-blue-600 text-white px-8 py-3 rounded-md font-semibold hover:bg-blue-700 transition-all shadow-lg disabled:opacity-50"
-                  >
-                    {isDownloading ? (
-                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-white/20 border-t-white" />
-                    ) : (
-                      <Download className="w-5 h-5" />
-                    )}
-                    {isDownloading ? "Procesando..." : "Descargar PDF"}
-                  </button>
-                </div>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
  
