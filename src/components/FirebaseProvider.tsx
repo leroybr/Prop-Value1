@@ -38,6 +38,7 @@ export const FirebaseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           }
         } catch (error) {
           console.error("Error syncing user profile:", error);
+          // Don't throw here to avoid blocking the app, but log it
         }
       }
       setUser(currentUser);
