@@ -4,12 +4,14 @@
 @theme {
   --font-sans: "Inter", "Montserrat", ui-sans-serif, system-ui, sans-serif;
   --font-serif: "Cormorant Garamond", ui-serif, Georgia, serif;
-  --color-blue-50: #eff6ff;
-  --color-blue-100: #dbeafe;
-  --color-blue-600: #2563EB; /* Standard blue requested by user */
-  --color-blue-700: #1d4ed8;
-  --color-blue-800: #1e40af;
-  --color-blue-900: #1e3a8a;
+  --color-blue-50: #f0f9f8;
+  --color-blue-100: #d1e6e3;
+  --color-blue-400: #148c74;
+  --color-blue-500: #0d6b58;
+  --color-blue-600: #0A4F41; /* Specific Green requested: #0A4F41 */
+  --color-blue-700: #083f34;
+  --color-blue-800: #062f27;
+  --color-blue-900: #041f1a;
   --color-orange-leroy: #FF6B00; /* Vibrant orange for branding */
 }
 
@@ -90,12 +92,13 @@
     --tw-border-opacity: 1 !important;
   }
 
-  .report-pdf-container .text-blue-600 { color: #2563EB !important; }
-  .report-pdf-container .bg-blue-600 { background-color: #2563EB !important; }
-  .report-pdf-container .bg-blue-50 { background-color: #eff6ff !important; }
-  .report-pdf-container .border-blue-100 { border-color: #dbeafe !important; }
-  .report-pdf-container .text-blue-800 { color: #1e40af !important; }
-  .report-pdf-container .text-blue-900 { color: #1e3a8a !important; }
+  .report-pdf-container .text-blue-400 { color: #148c74 !important; }
+  .report-pdf-container .text-blue-600 { color: #0A4F41 !important; }
+  .report-pdf-container .bg-blue-600 { background-color: #0A4F41 !important; }
+  .report-pdf-container .bg-blue-50 { background-color: #f0f9f8 !important; }
+  .report-pdf-container .border-blue-100 { border-color: #d1e6e3 !important; }
+  .report-pdf-container .text-blue-800 { color: #062f27 !important; }
+  .report-pdf-container .text-blue-900 { color: #041f1a !important; }
   .report-pdf-container .text-orange-leroy { color: #FF6B00 !important; }
   .report-pdf-container .bg-gray-50 { background-color: #f9fafb !important; }
   .report-pdf-container .bg-gray-100 { background-color: #f3f4f6 !important; }
@@ -112,4 +115,30 @@
   .report-pdf-container .border-amber-100 { border-color: #fef3c7 !important; }
   .report-pdf-container .text-amber-800 { color: #92400e !important; }
   .report-pdf-container .text-amber-900 { color: #78350f !important; }
+  /* Print Styles */
+  @media print {
+    body * {
+      visibility: hidden;
+    }
+    .report-pdf-container,
+    .report-pdf-container * {
+      visibility: visible;
+    }
+    .report-pdf-container {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 100%;
+      margin: 0;
+      padding: 0;
+    }
+    /* Hide modal background and close buttons when printing */
+    .fixed.inset-0,
+    button {
+      display: none !important;
+    }
+    .report-pdf-container button {
+      display: none !important;
+    }
+  }
 }
