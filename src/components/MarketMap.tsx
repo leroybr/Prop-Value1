@@ -70,7 +70,7 @@ export const MarketMap: React.FC = () => {
       <div className="relative aspect-video bg-gray-50 rounded-xl overflow-hidden border border-gray-100">
         {/* Mock Map Background (Abstract Grid) */}
         <div className="absolute inset-0 opacity-10" style={{ 
-          backgroundImage: 'radial-gradient(#2563eb 0.5px, transparent 0.5px)', 
+          backgroundImage: 'radial-gradient(#0A4F41 0.5px, transparent 0.5px)', 
           backgroundSize: '24px 24px' 
         }}></div>
 
@@ -103,4 +103,3 @@ export const MarketMap: React.FC = () => {
       </div>
     </div>
   );
-};
