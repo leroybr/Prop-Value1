@@ -11,6 +11,8 @@ const schema = z.object({
   valuation_type: z.enum(['basic', 'professional']),
   property_type: z.enum(['Departamento', 'Casa', 'Sitio Eriazo', 'Oficina', 'Local Comercial', 'Agrícola / Parcela', 'Teatro']),
   rol_sii: z.string().optional(),
+  rol_manzana: z.string().optional(),
+  rol_predio: z.string().optional(),
   avaluo_fiscal: z.number().optional(),
   address_street: z.string().optional(),
   address_number: z.string().optional(),
@@ -149,8 +151,17 @@ export const ValuationForm: React.FC<Props> = ({ onSubmit, isLoading }) => {
   const commune = watch("commune");
   const sector = watch("sector");
   const rol = watch("rol_sii");
+  const rolManzana = watch("rol_manzana");
+  const rolPredio = watch("rol_predio");
   const street = watch("address_street");
   const number = watch("address_number");
+
+  // Sync rol_sii with manzana and predio
+  React.useEffect(() => {
+    if (rolManzana || rolPredio) {
+      setValue("rol_sii", `${rolManzana || ""}-${rolPredio || ""}`);
+    }
+  }, [rolManzana, rolPredio, setValue]);
 
   const handleFetchNorms = async () => {
     const apiKey = import.meta.env.VITE_GEMINI_API_KEY || 
@@ -169,13 +180,15 @@ export const ValuationForm: React.FC<Props> = ({ onSubmit, isLoading }) => {
     
     setIsFetchingNorms(true);
     try {
-      const data = await getRegulatoryData(commune, sector || "", rol || "", street || "", number || "");
+      const currentZoningCode = watch("zoning_code");
+      const data = await getRegulatoryData(commune, sector || "", rol || "", street || "", number || "", rolManzana, rolPredio, currentZoningCode);
       if (!data) throw new Error("No se recibieron datos de la IA.");
       
       setValue("zoning_code", data.zoning_code);
       setValue("max_height", data.max_height);
       setValue("constructability_index", data.constructability_index);
       setValue("land_use_coefficient", data.land_use_coefficient);
+      setValue("setback", data.setback);
       setValue("property_usage", data.property_usage as any);
       setUsageSearch(data.property_usage);
     } catch (error) {
@@ -191,7 +204,8 @@ export const ValuationForm: React.FC<Props> = ({ onSubmit, isLoading }) => {
   );
 
   if (Object.keys(errors).length > 0) {
-    console.log("ValuationForm validation errors:", errors);
+    const errorMessages = Object.entries(errors).map(([field, err]) => `${field}: ${err?.message}`);
+    console.log("ValuationForm validation errors:", errorMessages);
   }
 
   // Reset fields when property type changes to Sitio Eriazo or Agrícola
@@ -238,7 +252,8 @@ export const ValuationForm: React.FC<Props> = ({ onSubmit, isLoading }) => {
           console.log("Form data validated and submitting:", updatedData);
           onSubmit(updatedData);
         }, (errors) => {
-          console.error("Form validation failed:", errors);
+          const errorMessages = Object.entries(errors).map(([field, err]) => `${field}: ${err?.message}`);
+          console.error("Form validation failed:", errorMessages);
         })}
         className="max-w-7xl mx-auto px-4 md:px-6 pb-12 space-y-8"
       >
@@ -256,6 +271,8 @@ export const ValuationForm: React.FC<Props> = ({ onSubmit, isLoading }) => {
                 setValue('address_street', 'Aníbal Pinto');
                 setValue('address_number', '343');
                 setValue('sector', 'Centro / Plaza de Armas (Local 29)');
+                setValue('rol_manzana', '136');
+                setValue('rol_predio', '126');
                 setValue('rol_sii', '136-126');
                 setValue('avaluo_fiscal', 676887653);
                 setValue('m2_total', 959);
@@ -359,11 +376,21 @@ export const ValuationForm: React.FC<Props> = ({ onSubmit, isLoading }) => {
           )}
 
         <div className="space-y-1">
-          <label className="text-sm font-medium text-gray-600">Rol SII (Opcional)</label>
+          <label className="text-sm font-medium text-gray-600">Rol SII (Manzana)</label>
           <input 
             type="text" 
-            placeholder="Ej: 1234-56"
-            {...register("rol_sii")}
+            placeholder="Ej: 1234"
+            {...register("rol_manzana")}
+            className="w-full p-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+
+        <div className="space-y-1">
+          <label className="text-sm font-medium text-gray-600">Rol SII (Predio)</label>
+          <input 
+            type="text" 
+            placeholder="Ej: 56"
+            {...register("rol_predio")}
             className="w-full p-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
@@ -1052,30 +1079,3 @@ export const ValuationForm: React.FC<Props> = ({ onSubmit, isLoading }) => {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-6 space-y-4">
-        {Object.keys(errors).length > 0 && (
-          <div className="bg-red-50 border border-red-200 p-4 rounded-xl">
-            <p className="text-sm text-red-600 font-bold">Por favor, revisa los campos marcados en rojo. Faltan datos obligatorios.</p>
-          </div>
-        )}
-        <button 
-          type="submit"
-          disabled={isLoading}
-          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-1.5 rounded-md transition-all shadow-lg shadow-blue-600/20 disabled:bg-blue-300 text-lg tracking-widest"
-        >
-          {isLoading ? "Calculando..." : "Obtener Tasación"}
-        </button>
-        <div className="text-center">
-          <button 
-            type="button"
-            onClick={() => window.location.reload()} 
-            className="text-gray-400 hover:text-gray-600 text-sm font-medium transition-colors"
-          >
-            Limpiar Formulario
-          </button>
-        </div>
-      </div>
-    </form>
-    </motion.div>
-  );
-};
