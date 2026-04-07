@@ -24,6 +24,8 @@ export interface PropertyData {
   valuation_type: 'basic' | 'professional';
   property_type: 'Departamento' | 'Casa' | 'Sitio Eriazo' | 'Oficina' | 'Local Comercial' | 'Agrícola / Parcela' | 'Teatro';
   rol_sii?: string;
+  rol_manzana?: string;
+  rol_predio?: string;
   avaluo_fiscal?: number;
   address_street?: string;
   address_number?: string;
@@ -127,6 +129,7 @@ export interface ValuationResult {
     future_factors: string;
     market_projection: string;
   };
+  createdAt?: { seconds: number; nanoseconds: number };
   valuation_type?: 'basic' | 'professional';
   professional_analysis?: {
     swot: {
