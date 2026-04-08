@@ -9,13 +9,14 @@ function getAi() {
     // Vite expondrá VITE_GEMINI_API_KEY automáticamente si existe.
     // También la definimos en vite.config.ts para mayor seguridad.
     const apiKey = import.meta.env.VITE_GEMINI_API_KEY || 
-                   (typeof process !== 'undefined' ? process.env.GEMINI_API_KEY : null);
+                   (typeof process !== 'undefined' ? process.env.GEMINI_API_KEY : null) ||
+                   (typeof process !== 'undefined' ? process.env.VITE_GEMINI_API_KEY : null);
     
     console.log("Verificando Clave Gemini:", apiKey ? "Detectada (OK)" : "No detectada (FALTA)");
 
-    if (!apiKey || apiKey === "undefined") {
+    if (!apiKey || apiKey === "undefined" || apiKey === "") {
       console.error("ERROR CRÍTICO: No se encuentra la clave VITE_GEMINI_API_KEY.");
-      throw new Error("Falta la clave de API. Si estás en Vercel, haz un 'Redeploy'. Si estás en AI Studio, agrégala en Settings > Secrets.");
+      throw new Error("Falta la clave de API de Gemini. Asegúrate de que VITE_GEMINI_API_KEY esté configurada en las variables de entorno de Vercel.");
     }
     aiInstance = new GoogleGenAI({ apiKey });
   }
@@ -105,7 +106,7 @@ export async function getRegulatoryData(
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-1.5-flash",
       contents: prompt,
       config: {
         responseMimeType: "application/json",
@@ -275,7 +276,7 @@ export async function estimatePropertyValue(data: PropertyData, ufValue: number)
   console.log("Iniciando tasación para:", data.commune);
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-3.1-pro-preview",
+      model: "gemini-1.5-pro",
       contents: prompt,
       config: {
         responseMimeType: "application/json",

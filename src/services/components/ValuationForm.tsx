@@ -192,9 +192,10 @@ export const ValuationForm: React.FC<Props> = ({ onSubmit, isLoading }) => {
       setValue("setback", data.setback);
       setValue("property_usage", data.property_usage as any);
       setUsageSearch(data.property_usage);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error fetching norms:", error);
-      alert("No se pudo obtener la normativa automáticamente. Por favor, ingrésala manualmente.");
+      const errorMessage = error?.message || "Error desconocido";
+      alert(`No se pudo obtener la normativa automáticamente: ${errorMessage}. Por favor, verifícala e ingrésala manualmente.`);
     } finally {
       setIsFetchingNorms(false);
     }
