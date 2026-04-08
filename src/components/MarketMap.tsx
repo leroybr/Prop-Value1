@@ -103,3 +103,4 @@ export const MarketMap: React.FC = () => {
       </div>
     </div>
   );
+};

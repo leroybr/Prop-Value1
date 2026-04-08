@@ -25,8 +25,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       {/* Hero Section */}
       <section className="hero pb-2 md:pb-4">
         <div className="w-full flex flex-col items-center">
-          <div className="hero-title-banner flex-col px-4">
-            <h1 className="text-xl md:text-3xl lg:text-4xl text-center">
+          <div className="hero-title-banner flex-col">
+            <h1 className="text-2xl md:text-4xl lg:text-5xl text-center text-white font-bold">
               ¿Sabes cuánto vale tu propiedad?
             </h1>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3 mt-4 max-w-5xl mx-auto w-full">

@@ -185,4 +185,3 @@ export interface MarketStat {
   avgPriceUF: number;
   trend: string;
 }
-

@@ -30,7 +30,8 @@ export async function getRegulatoryData(
   number?: string,
   rolManzana?: string,
   rolPredio?: string,
-  currentZoningCode?: string
+  currentZoningCode?: string,
+  m2_total?: number
 ): Promise<{
   zoning_code: string;
   max_height: number;
@@ -39,7 +40,7 @@ export async function getRegulatoryData(
   property_usage: string;
   setback: string;
 }> {
-  console.log("Consultando normativa detallada para:", { commune, sector, rol, street, number, rolManzana, rolPredio, currentZoningCode });
+  console.log("Consultando normativa detallada para:", { commune, sector, rol, street, number, rolManzana, rolPredio, currentZoningCode, m2_total });
   const ai = getAi();
   const prompt = `
     Act as a Senior Chilean Urban Planning Expert (Arquitecto Revisor DOM). 
@@ -53,6 +54,7 @@ export async function getRegulatoryData(
     - Rol SII (Manzana): ${rolManzana || "Not specified"}
     - Rol SII (Predio): ${rolPredio || "Not specified"}
     - User-Provided Zoning Code (Zona PRC): ${currentZoningCode || "Not specified"}
+    - Total Land Surface (Superficie Predial): ${m2_total || "Not specified"} m2
     
     Context for PRC Structure:
     The regulatory ordinance (Ordenanza del Plano Regulador) defines zones (e.g., ZM-1, CPH, ESC1) and for each zone, it specifies:
@@ -79,10 +81,16 @@ export async function getRegulatoryData(
     - If the user specifies "Centro" in Concepción, prioritize returning "CPH" as the zoning_code, UNLESS the Manzana indicates otherwise (like 1172 -> ESC1).
     - If the user has provided a Zoning Code (Zona PRC) like "ESC1" and it matches the Manzana (like 1172), DO NOT change it to "CPH".
     
+    IMPORTANT ANALYSIS FOR ESC1 (Concepción):
+    - In zone ESC1, the maximum height (Altura Máxima) is often restricted by the lot size (Superficie Predial).
+    - For example, if the lot is smaller than a certain threshold (often around 500-1000 m2), the height might be limited to a lower number of floors or meters (e.g., 2 floors or 7m) compared to larger lots that might allow 12m or more.
+    - If the user provides a surface area (like 534 m2), check if it falls into a specific height tier for ESC1 in the Concepción PRC.
+    
     Instructions:
     1. Extract the specific values for the identified zone from the PRC.
     2. If a User-Provided Zoning Code is present and it is a valid zone for the commune, prioritize using it to find the other values.
     3. For Manzana 1172 in Concepción, the zone MUST be "ESC1".
+    4. Pay close attention to the relationship between Land Surface (${m2_total} m2) and Max Height in zone ESC1.
     
     Provide the following data in JSON format:
     - zoning_code: The specific zone code (e.g., ZH-1, RM-2, CPH, CC, H-1, ESC1, ZM-1).

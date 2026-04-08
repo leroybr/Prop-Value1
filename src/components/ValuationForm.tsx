@@ -181,7 +181,8 @@ export const ValuationForm: React.FC<Props> = ({ onSubmit, isLoading }) => {
     setIsFetchingNorms(true);
     try {
       const currentZoningCode = watch("zoning_code");
-      const data = await getRegulatoryData(commune, sector || "", rol || "", street || "", number || "", rolManzana, rolPredio, currentZoningCode);
+      const m2Total = watch("m2_total");
+      const data = await getRegulatoryData(commune, sector || "", rol || "", street || "", number || "", rolManzana, rolPredio, currentZoningCode, m2Total);
       if (!data) throw new Error("No se recibieron datos de la IA.");
       
       setValue("zoning_code", data.zoning_code);
@@ -1079,3 +1080,30 @@ export const ValuationForm: React.FC<Props> = ({ onSubmit, isLoading }) => {
         </div>
       </div>
 
+      <div className="max-w-7xl mx-auto px-6 space-y-4">
+        {Object.keys(errors).length > 0 && (
+          <div className="bg-red-50 border border-red-200 p-4 rounded-xl">
+            <p className="text-sm text-red-600 font-bold">Por favor, revisa los campos marcados en rojo. Faltan datos obligatorios.</p>
+          </div>
+        )}
+        <button 
+          type="submit"
+          disabled={isLoading}
+          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-1.5 rounded-md transition-all shadow-lg shadow-blue-600/20 disabled:bg-blue-300 text-lg tracking-widest"
+        >
+          {isLoading ? "Calculando..." : "Obtener Tasación"}
+        </button>
+        <div className="text-center">
+          <button 
+            type="button"
+            onClick={() => window.location.reload()} 
+            className="text-gray-400 hover:text-gray-600 text-sm font-medium transition-colors"
+          >
+            Limpiar Formulario
+          </button>
+        </div>
+      </div>
+    </form>
+    </motion.div>
+  );
+};

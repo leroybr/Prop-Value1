@@ -1,17 +1,33 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, User } from 'firebase/auth';
 import { initializeFirestore, collection, doc, setDoc, getDoc, getDocs, query, where, orderBy, limit, onSnapshot, serverTimestamp, getDocFromServer } from 'firebase/firestore';
+import firebaseConfigJson from '../firebase-applet-config.json';
 
-// Usamos las variables de entorno configuradas en Vercel
+// Usamos las variables de entorno configuradas en Vercel, con fallback al JSON local
 const firebaseConfig = {
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || firebaseConfigJson.projectId,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || firebaseConfigJson.appId,
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || firebaseConfigJson.apiKey,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || firebaseConfigJson.authDomain,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || firebaseConfigJson.storageBucket,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || firebaseConfigJson.messagingSenderId,
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || firebaseConfigJson.measurementId,
 };
+
+const firestoreDatabaseId = import.meta.env.VITE_FIREBASE_FIRESTORE_DATABASE_ID || firebaseConfigJson.firestoreDatabaseId;
+
+// Debug log to check if keys are present (obfuscated)
+console.log("Firebase Config Check:", {
+  hasProjectId: !!firebaseConfig.projectId,
+  hasAppId: !!firebaseConfig.appId,
+  hasApiKey: !!firebaseConfig.apiKey,
+  apiKeyPrefix: firebaseConfig.apiKey ? `${firebaseConfig.apiKey.substring(0, 6)}...` : "MISSING",
+  source: import.meta.env.VITE_FIREBASE_API_KEY ? "Environment" : "JSON Fallback"
+});
+
+if (!firebaseConfig.apiKey || firebaseConfig.apiKey === "undefined") {
+  console.error("CRITICAL ERROR: Firebase API Key is missing! Check your Vercel Environment Variables or firebase-applet-config.json.");
+}
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
@@ -20,7 +36,7 @@ export const auth = getAuth(app);
 // Use initializeFirestore with long polling to avoid connection issues in some environments
 export const db = initializeFirestore(app, {
   experimentalForceLongPolling: true,
-}, import.meta.env.VITE_FIREBASE_FIRESTORE_DATABASE_ID);
+}, firestoreDatabaseId);
 
 export const googleProvider = new GoogleAuthProvider();
 

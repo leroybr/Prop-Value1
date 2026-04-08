@@ -1,144 +1,92 @@
-@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700&family=Inter:wght@400;600;700;900&family=Montserrat:ital,wght@0,100..900;1,100..900&display=swap');
-@import "tailwindcss";
+import React from 'react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
-@theme {
-  --font-sans: "Inter", "Montserrat", ui-sans-serif, system-ui, sans-serif;
-  --font-serif: "Cormorant Garamond", ui-serif, Georgia, serif;
-  --color-blue-50: #f0f9f8;
-  --color-blue-100: #d1e6e3;
-  --color-blue-400: #148c74;
-  --color-blue-500: #0d6b58;
-  --color-blue-600: #0A4F41; /* Specific Green requested: #0A4F41 */
-  --color-blue-700: #083f34;
-  --color-blue-800: #062f27;
-  --color-blue-900: #041f1a;
-  --color-orange-leroy: #FF6B00; /* Vibrant orange for branding */
-}
+const data: Record<string, any[]> = {
+  'Concepción': [
+    { month: 'Oct', price: 62 },
+    { month: 'Nov', price: 63.5 },
+    { month: 'Dic', price: 63 },
+    { month: 'Ene', price: 64.5 },
+    { month: 'Feb', price: 66 },
+    { month: 'Mar', price: 65.5 },
+  ],
+  'San Pedro': [
+    { month: 'Oct', price: 54 },
+    { month: 'Nov', price: 55.5 },
+    { month: 'Dic', price: 55 },
+    { month: 'Ene', price: 56.5 },
+    { month: 'Feb', price: 58 },
+    { month: 'Mar', price: 57.5 },
+  ],
+  'Talcahuano': [
+    { month: 'Oct', price: 44 },
+    { month: 'Nov', price: 45.5 },
+    { month: 'Dic', price: 45 },
+    { month: 'Ene', price: 46.5 },
+    { month: 'Feb', price: 48 },
+    { month: 'Mar', price: 47.5 },
+  ],
+  'Metropolitana': [
+    { month: 'Oct', price: 82 },
+    { month: 'Nov', price: 83.5 },
+    { month: 'Dic', price: 83 },
+    { month: 'Ene', price: 84.5 },
+    { month: 'Feb', price: 86 },
+    { month: 'Mar', price: 85.5 },
+  ]
+};
 
-@layer components {
-  .cta-top {
-    @apply bg-blue-600 text-white px-6 md:px-8 py-1.5 md:py-2 rounded-md font-bold text-base md:text-lg shadow-xl shadow-blue-600/20 hover:bg-blue-700 hover:-translate-y-1 transition-all active:translate-y-0 flex items-center justify-center;
-  }
-  
-  .cta-main {
-    @apply bg-blue-600 text-white px-6 md:px-10 py-2 md:py-3 rounded-md font-black text-lg md:text-xl shadow-2xl shadow-blue-600/30 hover:bg-blue-700 hover:-translate-y-1 transition-all active:translate-y-0 flex items-center justify-center;
-  }
+export const MarketTrends: React.FC = () => {
+  const [selected, setSelected] = React.useState<string>('Concepción');
 
-  .hero {
-    @apply flex flex-col items-center text-center pb-1 md:pb-2 px-4 md:px-6 bg-gradient-to-b from-blue-50/50 to-white border-b border-gray-100 w-full;
-  }
-
-  .hero h1 {
-    @apply text-xl sm:text-2xl md:text-5xl font-black text-white leading-tight text-center px-4;
-  }
-
-  .hero-title-banner {
-    @apply w-full bg-blue-600 py-0.5 md:py-1 mb-2 shadow-xl shadow-blue-600/20 flex justify-center items-center;
-  }
-
-  .hero p {
-    @apply text-base md:text-xl text-slate-500 max-w-2xl mb-4 md:mb-6 leading-relaxed;
-  }
-
-  .features {
-    @apply flex flex-wrap justify-center gap-4 md:gap-6 mb-4 md:mb-8;
-  }
-
-  .features span {
-    @apply flex items-center gap-2 text-xs md:text-sm font-bold text-gray-700 bg-gray-50 px-3 md:px-4 py-1.5 md:py-2 rounded-full;
-  }
-
-  .valuation-pillar {
-    @apply flex flex-col items-center px-4 md:px-8 py-4 bg-white rounded-3xl border border-gray-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all text-center min-h-0 md:min-h-[250px] justify-between gap-2;
-  }
-
-  .valuation-pillar h3 {
-    @apply text-lg font-semibold text-slate-800 mb-2;
-  }
-
-  .pillar-subtitle {
-    @apply text-[10px] font-bold text-blue-600 tracking-widest mb-0.5 opacity-80;
-  }
-
-  .valuation-pillar p {
-    @apply text-xs text-slate-500 leading-relaxed font-medium;
-  }
-
-  .pillar-list {
-    @apply w-full text-left space-y-1;
-  }
-
-  .pillar-list li {
-    @apply flex items-center gap-2 text-[10px] font-bold text-gray-500 tracking-wider;
-  }
-
-  .pillar-list li span {
-    @apply text-blue-600 font-black;
-  }
-
-  .pillar-icon {
-    @apply w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mb-1;
-  }
-
-  .hero-nav-btn {
-    @apply px-4 py-1.5 bg-transparent text-white text-[10px] font-semibold rounded-2xl border-t border-white/30 hover:bg-white hover:text-blue-600 transition-all tracking-tight;
-  }
-
-  /* Fix for html2canvas oklch error */
-  .report-pdf-container,
-  .report-pdf-container * {
-    --tw-text-opacity: 1 !important;
-    --tw-bg-opacity: 1 !important;
-    --tw-border-opacity: 1 !important;
-  }
-
-  .report-pdf-container .text-blue-400 { color: #148c74 !important; }
-  .report-pdf-container .text-blue-600 { color: #0A4F41 !important; }
-  .report-pdf-container .bg-blue-600 { background-color: #0A4F41 !important; }
-  .report-pdf-container .bg-blue-50 { background-color: #f0f9f8 !important; }
-  .report-pdf-container .border-blue-100 { border-color: #d1e6e3 !important; }
-  .report-pdf-container .text-blue-800 { color: #062f27 !important; }
-  .report-pdf-container .text-blue-900 { color: #041f1a !important; }
-  .report-pdf-container .text-orange-leroy { color: #FF6B00 !important; }
-  .report-pdf-container .bg-gray-50 { background-color: #f9fafb !important; }
-  .report-pdf-container .bg-gray-100 { background-color: #f3f4f6 !important; }
-  .report-pdf-container .text-gray-900 { color: #111827 !important; }
-  .report-pdf-container .text-gray-600 { color: #4b5563 !important; }
-  .report-pdf-container .text-gray-500 { color: #6b7280 !important; }
-  .report-pdf-container .text-gray-400 { color: #9ca3af !important; }
-  .report-pdf-container .border-gray-100 { border-color: #f3f4f6 !important; }
-  .report-pdf-container .bg-green-50 { background-color: #f0fdf4 !important; }
-  .report-pdf-container .border-green-100 { border-color: #dcfce7 !important; }
-  .report-pdf-container .text-green-800 { color: #166534 !important; }
-  .report-pdf-container .text-green-900 { color: #14532d !important; }
-  .report-pdf-container .bg-amber-50 { background-color: #fffbeb !important; }
-  .report-pdf-container .border-amber-100 { border-color: #fef3c7 !important; }
-  .report-pdf-container .text-amber-800 { color: #92400e !important; }
-  .report-pdf-container .text-amber-900 { color: #78350f !important; }
-  /* Print Styles */
-  @media print {
-    body * {
-      visibility: hidden;
-    }
-    .report-pdf-container,
-    .report-pdf-container * {
-      visibility: visible;
-    }
-    .report-pdf-container {
-      position: absolute;
-      left: 0;
-      top: 0;
-      width: 100%;
-      margin: 0;
-      padding: 0;
-    }
-    /* Hide modal background and close buttons when printing */
-    .fixed.inset-0,
-    button {
-      display: none !important;
-    }
-    .report-pdf-container button {
-      display: none !important;
-    }
-  }
-}
+  return (
+    <div className="bg-white p-4 md:p-6 rounded-lg shadow-sm border border-gray-100 h-[350px] md:h-[400px]">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+        <h2 className="text-lg md:text-xl font-medium text-slate-800">Tendencias (UF/m²)</h2>
+        <div className="flex flex-wrap gap-2">
+          {Object.keys(data).map(r => (
+            <button
+              key={r}
+              onClick={() => setSelected(r)}
+              className={`px-3 py-1 rounded-md text-[10px] font-semibold transition-colors ${
+                selected === r 
+                  ? 'bg-blue-600 text-white' 
+                  : 'bg-gray-100 text-slate-500 hover:bg-gray-200'
+              }`}
+            >
+              {r}
+            </button>
+          ))}
+        </div>
+      </div>
+      <ResponsiveContainer width="100%" height="80%">
+        <LineChart data={data[selected]}>
+          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+          <XAxis 
+            dataKey="month" 
+            axisLine={false} 
+            tickLine={false} 
+            tick={{ fill: '#9ca3af', fontSize: 12 }}
+          />
+          <YAxis 
+            axisLine={false} 
+            tickLine={false} 
+            tick={{ fill: '#9ca3af', fontSize: 12 }}
+            domain={['dataMin - 100', 'dataMax + 100']}
+          />
+          <Tooltip 
+            contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+          />
+          <Line 
+            type="monotone" 
+            dataKey="price" 
+            stroke="#0A4F41" 
+            strokeWidth={3} 
+            dot={{ r: 4, fill: '#0A4F41', strokeWidth: 2, stroke: '#fff' }}
+            activeDot={{ r: 6 }}
+          />
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  );
+};
