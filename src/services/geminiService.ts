@@ -57,8 +57,13 @@ export async function getRegulatoryData(
     - User-Provided Zoning Code (Zona PRC): ${currentZoningCode || "Not specified"}
     - Total Land Surface (Superficie Predial): ${m2_total || "Not specified"} m2
     
+    Reference Document Search:
+    - Use Google Search to find the official "Ordenanza del Plano Regulador Comunal" (PRC) or "Plan Regulador Metropolitano" (PRM) for ${commune}.
+    - If the commune is "Concepción", you may also reference: http://www.concepcion.cl/Obras/instru-plan-regulador/prcc.pdf
+    - Your goal is to identify the specific zone (e.g., ZH-1, ZM-2, CPH, ESC1) where the property is located based on its ROL (${rol}) or Address (${street} ${number}).
+    
     Context for PRC Structure:
-    The regulatory ordinance (Ordenanza del Plano Regulador) defines zones (e.g., ZM-1, CPH, ESC1) and for each zone, it specifies:
+    The regulatory ordinance (Ordenanza del Plano Regulador) defines zones and for each zone, it specifies:
     - USOS DE SUELO (Permitted, Conditioned, Prohibited).
     - CONDICIONES DE SUBDIVISIÓN Y EDIFICACIÓN:
         - Superficie Predial Mínima.
@@ -69,29 +74,16 @@ export async function getRegulatoryData(
         - Antejardín Mínimo.
         - Densidad Habitacional Máxima.
     
-    Example for ZM-1 (Zona Mixta):
-    - Altura Máxima: 45 m.
-    - Coef. Constructibilidad: 2.5 (extensión) / 12 (altura).
-    - Antejardín: 3 m.
-    
-    Specific Knowledge for Concepción:
-    - Manzana 1172 in Concepción corresponds to zone "ESC1". This is a fixed rule.
-    - If the sector is "Centro", the zone is almost certainly "CPH" (Centro de Protección Histórica).
-    - CPH zones (Centro de Protección Histórica) are the most important zones in Concepción Centro.
-    - Other zones in Concepción include "CC" (Centro Comercial), "CU" (Centro Urbano), "H" (Habitacional), "ESC" (Equipamiento/Servicios).
-    - If the user specifies "Centro" in Concepción, prioritize returning "CPH" as the zoning_code, UNLESS the Manzana indicates otherwise (like 1172 -> ESC1).
-    - If the user has provided a Zoning Code (Zona PRC) like "ESC1" and it matches the Manzana (like 1172), DO NOT change it to "CPH".
-    
-    IMPORTANT ANALYSIS FOR ESC1 (Concepción):
-    - In zone ESC1, the maximum height (Altura Máxima) is often restricted by the lot size (Superficie Predial).
-    - For example, if the lot is smaller than a certain threshold (often around 500-1000 m2), the height might be limited to a lower number of floors or meters (e.g., 2 floors or 7m) compared to larger lots that might allow 12m or more.
-    - If the user provides a surface area (like 534 m2), check if it falls into a specific height tier for ESC1 in the Concepción PRC.
+    Specific Knowledge for Concepción (if applicable):
+    - Manzana 1172 in Concepción corresponds to zone "ESC1".
+    - The sector "Pedro de Valdivia" in Concepción is characterized by zone "ESC1" in many areas.
+    - CPH zones (Centro de Protección Histórica) are key in Concepción Centro.
+    - In zone ESC1, the maximum height (Altura Máxima) is strictly tied to the lot size (Superficie Predial). For ~500m2, it's usually 2 floors (~7-9m).
     
     Instructions:
-    1. Extract the specific values for the identified zone from the PRC.
-    2. If a User-Provided Zoning Code is present and it is a valid zone for the commune, prioritize using it to find the other values.
-    3. For Manzana 1172 in Concepción, the zone MUST be "ESC1".
-    4. Pay close attention to the relationship between Land Surface (${m2_total} m2) and Max Height in zone ESC1.
+    1. Extract the specific values for the identified zone from the PRC of ${commune}.
+    2. If a User-Provided Zoning Code is present and valid, prioritize using it.
+    3. Use the ROL and Address to pinpoint the property on the zoning map if possible.
     
     Provide the following data in JSON format:
     - zoning_code: The specific zone code (e.g., ZH-1, RM-2, CPH, CC, H-1, ESC1, ZM-1).
@@ -106,7 +98,7 @@ export async function getRegulatoryData(
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-1.5-flash",
+      model: "gemini-3-flash-preview",
       contents: prompt,
       config: {
         responseMimeType: "application/json",
@@ -121,7 +113,16 @@ export async function getRegulatoryData(
             setback: { type: Type.STRING }
           },
           required: ["zoning_code", "max_height", "constructability_index", "land_use_coefficient", "property_usage", "setback"]
-        }
+        },
+        tools: [
+          ...(commune.toLowerCase().includes("concepción") ? [{ 
+            urlContext: { 
+              entries: [{ url: "http://www.concepcion.cl/Obras/instru-plan-regulador/prcc.pdf" }] 
+            } 
+          }] : []),
+          { googleSearch: {} }
+        ],
+        toolConfig: { includeServerSideToolInvocations: true }
       }
     });
 
@@ -143,6 +144,9 @@ export async function estimatePropertyValue(data: PropertyData, ufValue: number)
     Act as a Senior Real Estate Appraiser (Tasador Inmobiliario Senior) and Data Scientist for the Chilean market.
     Your goal is to provide a ${data.valuation_type === 'professional' ? 'PREMIUM professional valuation (AVM) report' : 'BASIC valuation estimate'}.
     ${data.valuation_type === 'professional' ? 'Include a detailed SWOT analysis, technical breakdown, and municipal analysis.' : 'Provide a quick, concise estimate.'}
+
+    Reference Document for Urban Norms:
+    - http://www.concepcion.cl/Obras/instru-plan-regulador/prcc.pdf
 
 
     Property Details:
@@ -276,7 +280,7 @@ export async function estimatePropertyValue(data: PropertyData, ufValue: number)
   console.log("Iniciando tasación para:", data.commune);
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-1.5-pro",
+      model: "gemini-3.1-pro-preview",
       contents: prompt,
       config: {
         responseMimeType: "application/json",
@@ -413,7 +417,16 @@ export async function estimatePropertyValue(data: PropertyData, ufValue: number)
             }
           },
           required: ["estimated_price_uf", "confidence_score", "market_context", "regulatory_analysis", "cabida_informe", "restricciones_analisis", "plusvalia_calculo", "comparables"]
-        }
+        },
+        tools: [
+          ...(data.commune.toLowerCase().includes("concepción") ? [{ 
+            urlContext: { 
+              entries: [{ url: "http://www.concepcion.cl/Obras/instru-plan-regulador/prcc.pdf" }] 
+            } 
+          }] : []),
+          { googleSearch: {} }
+        ],
+        toolConfig: { includeServerSideToolInvocations: true }
       },
     });
 

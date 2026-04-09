@@ -7,7 +7,7 @@ import { ProjectList } from './components/ProjectList';
 import { LandingPage } from './components/LandingPage';
 import { PropertyData, ValuationResult, MarketStat, Project } from './types';
 import { estimatePropertyValue } from './services/geminiService';
-import { useFirebase } from './components/FirebaseProvider';
+import { useFirebase } from './components/FirebaseProvider.tsx';
 import { db, handleFirestoreError, OperationType } from './firebase';
 import { collection, addDoc, query, where, orderBy, limit, onSnapshot, serverTimestamp } from 'firebase/firestore';
 import { Building2, TrendingUp, MapPin, Calculator, Info, LogOut, LogIn, Download, FileText, X, CheckCircle2, Map as MapIcon, History, Layout, Settings } from 'lucide-react';
@@ -15,7 +15,7 @@ import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 
 export default function App() {
-  const { user, loading: authLoading, authActionLoading, login, logout } = useFirebase();
+  const { user, loading: authLoading, authActionLoading, login, logout, error: firebaseError, setError: setFirebaseError } = useFirebase();
   const [valuation, setValuation] = useState<ValuationResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [marketStats, setMarketStats] = useState<MarketStat[]>([]);
@@ -29,6 +29,7 @@ export default function App() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [apiKeyError, setApiKeyError] = useState<string | null>(null);
   const [firestoreError, setFirestoreError] = useState<Error | null>(null);
+  const [appError, setAppError] = useState<string | null>(null);
   const reportRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -325,13 +326,13 @@ export default function App() {
                    (window as any).process?.env?.GEMINI_API_KEY;
 
     if (!apiKey || apiKey === "undefined") {
-      alert("Error: No se ha configurado la clave de API de Gemini. Si estás en Vercel, agrégala como VITE_GEMINI_API_KEY y haz un 'Redeploy'.");
+      setAppError("Error: No se ha configurado la clave de API de Gemini. Si estás en Vercel, agrégala como VITE_GEMINI_API_KEY y haz un 'Redeploy'.");
       return;
     }
 
     if (!user) {
       console.warn("User not logged in, cannot perform valuation");
-      alert("Por favor, inicia sesión para realizar una tasación.");
+      setAppError("Por favor, inicia sesión para realizar una tasación.");
       return;
     }
 
@@ -366,9 +367,9 @@ export default function App() {
     } catch (error) {
       console.error("Valuation error caught in App.tsx:", error);
       if (error instanceof Error && error.message === "TIMEOUT") {
-        alert("La tasación está tomando más tiempo de lo esperado. Por favor, intenta de nuevo en unos momentos.");
+        setAppError("La tasación está tomando más tiempo de lo esperado. Por favor, intenta de nuevo en unos momentos.");
       } else {
-        alert("Hubo un error al procesar la tasación. Por favor, intenta de nuevo.");
+        setAppError("Hubo un error al procesar la tasación. Por favor, intenta de nuevo.");
       }
       handleFirestoreError(error, OperationType.CREATE, 'valuations');
     } finally {
@@ -440,7 +441,7 @@ export default function App() {
       
     } catch (error) {
       console.error("Error generating PDF:", error);
-      alert("Hubo un error al generar el PDF. Por favor, inténtalo de nuevo. Si el error persiste, intenta usar la opción de Imprimir.");
+      setAppError("Hubo un error al generar el PDF. Por favor, inténtalo de nuevo. Si el error persiste, intenta usar la opción de Imprimir.");
     } finally {
       setIsDownloading(false);
     }
@@ -517,17 +518,43 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900 font-sans">
+      {/* App Error Banner */}
+      {(appError || firebaseError) && (
+        <div className="bg-red-600 text-white px-4 py-2 text-center text-xs font-bold sticky top-0 z-[60] shadow-lg flex items-center justify-center gap-2">
+          <Info className="w-4 h-4" />
+          {appError || firebaseError}
+          <button 
+            onClick={() => { setAppError(null); setFirebaseError(null); }}
+            className="ml-4 bg-white/20 px-2 py-1 rounded hover:bg-white/30 text-[10px]"
+          >
+            Cerrar
+          </button>
+        </div>
+      )}
+
       {/* Firestore Error Banner */}
       {firestoreError && (
-        <div className="bg-amber-600 text-white px-4 py-2 text-center text-xs font-bold sticky top-0 z-[60] shadow-lg flex items-center justify-center gap-2">
-          <Info className="w-4 h-4" />
-          Hubo un problema al cargar tus datos. Es posible que algunas funciones no estén disponibles.
-          <button 
-            onClick={() => setFirestoreError(null)}
-            className="ml-4 bg-white/20 px-2 py-1 rounded hover:bg-white/30"
-          >
-            Ignorar
-          </button>
+        <div className="bg-amber-600 text-white px-4 py-2 text-center text-xs font-bold sticky top-0 z-[60] shadow-lg flex flex-col items-center justify-center gap-1">
+          <div className="flex items-center gap-2">
+            <Info className="w-4 h-4" />
+            Hubo un problema con la base de datos.
+            <button 
+              onClick={() => setFirestoreError(null)}
+              className="ml-4 bg-white/20 px-2 py-1 rounded hover:bg-white/30 text-[10px]"
+            >
+              Ignorar
+            </button>
+          </div>
+          <p className="text-[10px] opacity-90 font-mono max-w-2xl truncate">
+            {(() => {
+              try {
+                const parsed = JSON.parse(firestoreError.message);
+                return `${parsed.operationType.toUpperCase()} error on ${parsed.path}: ${parsed.error}`;
+              } catch (e) {
+                return firestoreError.message;
+              }
+            })()}
+          </p>
         </div>
       )}
 
@@ -870,7 +897,7 @@ export default function App() {
 
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         {valuation.comparables.map((comp, idx) => (
-                          <div key={idx} className="bg-white/10 p-3 rounded-md border border-white/10">
+                          <div key={`comp-${idx}-${comp.price_uf}`} className="bg-white/10 p-3 rounded-md border border-white/10">
                             <p className="text-xs text-white mb-1">{comp.source}</p>
                             <p className="font-bold">{comp.price_uf} UF</p>
                             <p className="text-xs text-white">{comp.m2} m² • {comp.distance_km} km</p>
@@ -902,7 +929,7 @@ export default function App() {
                           <p className="text-gray-500 text-sm italic">No hay registros recientes.</p>
                         ) : (
                           history.map((item, idx) => (
-                            <div key={idx} className="flex justify-between items-center p-3 bg-gray-50 rounded-md border border-gray-100 hover:bg-gray-100 transition-colors">
+                            <div key={item.id || `hist-${idx}-${item.createdAt?.seconds}`} className="flex justify-between items-center p-3 bg-gray-50 rounded-md border border-gray-100 hover:bg-gray-100 transition-colors">
                               <div className="flex items-center gap-3">
                                 <div className="bg-blue-100 p-2 rounded-lg">
                                   <FileText className="w-4 h-4 text-blue-600" />

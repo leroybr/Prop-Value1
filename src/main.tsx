@@ -1,6 +1,6 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { FirebaseProvider } from './components/FirebaseProvider';
+import { FirebaseProvider } from './components/FirebaseProvider.tsx';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import App from './App';
 import './index.css';
