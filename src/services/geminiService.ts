@@ -32,7 +32,8 @@ export async function getRegulatoryData(
   rolManzana?: string,
   rolPredio?: string,
   currentZoningCode?: string,
-  m2_total?: number
+  m2_total?: number,
+  is_corner?: boolean
 ): Promise<{
   zoning_code: string;
   max_height: number;
@@ -40,6 +41,12 @@ export async function getRegulatoryData(
   land_use_coefficient: number;
   property_usage: string;
   setback: string;
+  parking_quota: string;
+  recent_amendments: string;
+  occupancy_calculation: string;
+  constructability_calculation: string;
+  height_by_surface: string;
+  allowed_buildable_surface: string;
 }> {
   console.log("Consultando normativa detallada para:", { commune, sector, rol, street, number, rolManzana, rolPredio, currentZoningCode, m2_total });
   const ai = getAi();
@@ -56,6 +63,7 @@ export async function getRegulatoryData(
     - Rol SII (Predio): ${rolPredio || "Not specified"}
     - User-Provided Zoning Code (Zona PRC): ${currentZoningCode || "Not specified"}
     - Total Land Surface (Superficie Predial): ${m2_total || "Not specified"} m2
+    - Es Esquina (Is Corner Lot): ${is_corner ? "SÍ" : "NO"}
     
     Reference Document Search:
     - Use Google Search to find the official "Ordenanza del Plano Regulador Comunal" (PRC) or "Plan Regulador Metropolitano" (PRM) for ${commune}.
@@ -89,9 +97,15 @@ export async function getRegulatoryData(
     - zoning_code: The specific zone code (e.g., ZH-1, RM-2, CPH, CC, H-1, ESC1, ZM-1).
     - max_height: Maximum built height allowed in meters (number).
     - constructability_index: Coefficient of constructability (number).
-    - land_use_coefficient: Land occupation coefficient (number).
+    - land_use_coefficient: Land occupation coefficient (number, e.g., 0.6). Reference the Ordenanza General de Urbanismo y Construcciones (OGUC) and local PRC.
     - property_usage: Primary allowed usage (Habitacional, Comercial, Agrícola, or Esparcimiento o Cultura).
     - setback: Minimum setback (Antejardín) in meters or description (string, e.g., "3 m", "No se exige").
+    - parking_quota: Specific parking quotas for the commune and zone (string).
+    - recent_amendments: Any recent modifications or amendments (Enmiendas) to the PRC (2024-2025) (string).
+    - occupancy_calculation: A brief explanation of the ground floor occupancy based on the lot size (${m2_total || "unknown"} m2) and if it is a corner lot (${is_corner ? "SÍ" : "NO"}). Example: "Podrás ocupar aproximadamente X m2 en la planta baja."
+    - constructability_calculation: A brief explanation of the total buildable area based on the lot size (${m2_total || "unknown"} m2). Example: "Se permite una superficie total edificada de hasta Y m2 sumando todos los pisos."
+    - height_by_surface: The maximum number of floors allowed specifically based on the surface area of this lot (${m2_total || "unknown"} m2) and if it is a corner lot (${is_corner ? "SÍ" : "NO"}).
+    - allowed_buildable_surface: The total surface area (m2) that can be built on this lot based on the constructability index and lot size (${m2_total || "unknown"} m2). If it is a corner lot, adjust accordingly if the PRC specifies benefits or changes.
     
     Important: If you find multiple sub-zones, provide the data for the most restrictive or most common one in that specific sector.
   `;
@@ -110,19 +124,20 @@ export async function getRegulatoryData(
             constructability_index: { type: Type.NUMBER },
             land_use_coefficient: { type: Type.NUMBER },
             property_usage: { type: Type.STRING },
-            setback: { type: Type.STRING }
+            setback: { type: Type.STRING },
+            parking_quota: { type: Type.STRING },
+            recent_amendments: { type: Type.STRING },
+            occupancy_calculation: { type: Type.STRING },
+            constructability_calculation: { type: Type.STRING },
+            height_by_surface: { type: Type.STRING },
+            allowed_buildable_surface: { type: Type.STRING }
           },
-          required: ["zoning_code", "max_height", "constructability_index", "land_use_coefficient", "property_usage", "setback"]
+          required: ["zoning_code", "max_height", "constructability_index", "land_use_coefficient", "property_usage", "setback", "parking_quota", "recent_amendments", "occupancy_calculation", "constructability_calculation", "height_by_surface", "allowed_buildable_surface"]
         },
         tools: [
-          ...(commune.toLowerCase().includes("concepción") ? [{ 
-            urlContext: { 
-              entries: [{ url: "http://www.concepcion.cl/Obras/instru-plan-regulador/prcc.pdf" }] 
-            } 
-          }] : []),
+          { urlContext: {} },
           { googleSearch: {} }
-        ],
-        toolConfig: { includeServerSideToolInvocations: true }
+        ]
       }
     });
 
@@ -248,7 +263,14 @@ export async function estimatePropertyValue(data: PropertyData, ufValue: number)
     - If Rol SII is provided, consider its impact on tax assessment and specific location.
     - Specific Knowledge for Concepción: Manzana 1172 corresponds to zone "ESC1". CPH is the most common zone in the "Centro" sector.
     - Analyze the development potential based on the zoning code (${data.zoning_code || "Not specified"}).
-    - Use the user-provided urban norms if available: Max Height (${data.max_height || "Not specified"}), Constructability Index (${data.constructability_index || "Not specified"}).
+    - Use the user-provided urban norms if available: 
+        - Max Height (${data.max_height || "Not specified"})
+        - Constructability Index (${data.constructability_index || "Not specified"})
+        - Land Use Coefficient (${data.land_use_coefficient || "Not specified"})
+        - Parking Quota (${data.parking_quota || "Not specified"})
+        - Recent Amendments (${data.recent_amendments || "Not specified"})
+        - Occupancy Calculation (${data.occupancy_calculation || "Not specified"})
+        - Constructability Calculation (${data.constructability_calculation || "Not specified"})
     - Focus on the specific dynamics of ${data.commune} (e.g., proximity to Metro, security trends, new developments).
     - Especial énfasis en Biobío (Concepción, San Pedro de la Paz) y Santiago (Región Metropolitana).
 
@@ -419,14 +441,9 @@ export async function estimatePropertyValue(data: PropertyData, ufValue: number)
           required: ["estimated_price_uf", "confidence_score", "market_context", "regulatory_analysis", "cabida_informe", "restricciones_analisis", "plusvalia_calculo", "comparables"]
         },
         tools: [
-          ...(data.commune.toLowerCase().includes("concepción") ? [{ 
-            urlContext: { 
-              entries: [{ url: "http://www.concepcion.cl/Obras/instru-plan-regulador/prcc.pdf" }] 
-            } 
-          }] : []),
+          { urlContext: {} },
           { googleSearch: {} }
-        ],
-        toolConfig: { includeServerSideToolInvocations: true }
+        ]
       },
     });
 

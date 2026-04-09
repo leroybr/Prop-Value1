@@ -64,6 +64,13 @@ const schema = z.object({
   grouping: z.enum(['Continuo', 'Aislado', 'Pareado']).optional(),
   cip_status: z.string().optional(),
   expropriation_status: z.string().optional(),
+  parking_quota: z.string().optional(),
+  recent_amendments: z.string().optional(),
+  occupancy_calculation: z.string().optional(),
+  constructability_calculation: z.string().optional(),
+  height_by_surface: z.string().optional(),
+  allowed_buildable_surface: z.string().optional(),
+  is_corner: z.boolean().optional(),
   access_description: z.string().optional(),
   distribution_description: z.string().optional(),
   structure_muros: z.string().optional(),
@@ -184,7 +191,8 @@ export const ValuationForm: React.FC<Props> = ({ onSubmit, isLoading }) => {
     try {
       const currentZoningCode = watch("zoning_code");
       const m2Total = watch("m2_total");
-      const data = await getRegulatoryData(commune, sector || "", rol || "", street || "", number || "", rolManzana, rolPredio, currentZoningCode, m2Total);
+      const isCorner = watch("is_corner");
+      const data = await getRegulatoryData(commune, sector || "", rol || "", street || "", number || "", rolManzana, rolPredio, currentZoningCode, m2Total, isCorner);
       if (!data) throw new Error("No se recibieron datos de la IA.");
       
       setValue("zoning_code", data.zoning_code);
@@ -193,6 +201,12 @@ export const ValuationForm: React.FC<Props> = ({ onSubmit, isLoading }) => {
       setValue("land_use_coefficient", data.land_use_coefficient);
       setValue("setback", data.setback);
       setValue("property_usage", data.property_usage as any);
+      setValue("parking_quota", data.parking_quota);
+      setValue("recent_amendments", data.recent_amendments);
+      setValue("occupancy_calculation", data.occupancy_calculation);
+      setValue("constructability_calculation", data.constructability_calculation);
+      setValue("height_by_surface", data.height_by_surface);
+      setValue("allowed_buildable_surface", data.allowed_buildable_surface);
       setUsageSearch(data.property_usage);
     } catch (error: any) {
       console.error("Error fetching norms:", error);
@@ -481,35 +495,40 @@ export const ValuationForm: React.FC<Props> = ({ onSubmit, isLoading }) => {
                 : 'bg-blue-600 text-white hover:bg-blue-700 shadow-md hover:shadow-blue-600/20 active:scale-95'
             }`}
           >
-            {isFetchingNorms ? (
-              <>
+            <span className="flex items-center gap-2">
+              {isFetchingNorms ? (
                 <Loader2 className="w-3 h-3 animate-spin" />
-                Consultando PRC...
-              </>
-            ) : (
-              <>
+              ) : (
                 <Sparkles className="w-3 h-3" />
-                Consultar Normativa Automática
-              </>
-            )}
+              )}
+              {isFetchingNorms ? "Consultando PRC..." : "Consultar Normativa Automática"}
+            </span>
           </button>
         </div>
         
-        {fetchError && (
-          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2 text-red-700 text-xs font-medium">
-              <Info className="w-4 h-4" />
-              {fetchError}
-            </div>
-            <button 
-              type="button"
-              onClick={() => setFetchError(null)}
-              className="text-red-400 hover:text-red-600"
+        <AnimatePresence>
+          {fetchError && (
+            <motion.div 
+              key="fetch-error"
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center justify-between gap-2 overflow-hidden"
             >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-        )}
+              <div className="flex items-center gap-2 text-red-700 text-xs font-medium">
+                <Info className="w-4 h-4" />
+                {fetchError}
+              </div>
+              <button 
+                type="button"
+                onClick={() => setFetchError(null)}
+                className="text-red-400 hover:text-red-600"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
         
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4 md:gap-6 items-start">
           <div className="space-y-1">
@@ -541,24 +560,32 @@ export const ValuationForm: React.FC<Props> = ({ onSubmit, isLoading }) => {
               onBlur={() => setTimeout(() => setShowUsageOptions(false), 200)}
               className="w-full p-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm"
             />
-            {showUsageOptions && (
-              <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-40 overflow-y-auto">
-                {filteredUsageOptions.map(opt => (
-                  <button
-                    key={opt}
-                    type="button"
-                    onClick={() => {
-                      setValue("property_usage", opt as any);
-                      setUsageSearch(opt);
-                      setShowUsageOptions(false);
-                    }}
-                    className="w-full text-left px-4 py-2 text-sm hover:bg-blue-50 transition-colors"
-                  >
-                    {opt}
-                  </button>
-                ))}
-              </div>
-            )}
+            <AnimatePresence>
+              {showUsageOptions && (
+                <motion.div 
+                  key="usage-options"
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-40 overflow-y-auto"
+                >
+                  {filteredUsageOptions.map(opt => (
+                    <button
+                      key={opt}
+                      type="button"
+                      onClick={() => {
+                        setValue("property_usage", opt as any);
+                        setUsageSearch(opt);
+                        setShowUsageOptions(false);
+                      }}
+                      className="w-full text-left px-4 py-2 text-sm hover:bg-blue-50 transition-colors"
+                    >
+                      {opt}
+                    </button>
+                  ))}
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
 
           <div className="space-y-1">
@@ -595,7 +622,7 @@ export const ValuationForm: React.FC<Props> = ({ onSubmit, isLoading }) => {
           </div>
 
           {propertyType !== 'Sitio Eriazo' && (
-            <div className="space-y-1">
+            <div key="m2-useful-field" className="space-y-1">
               <label className="text-sm font-medium text-gray-600">
                 {propertyType === 'Departamento' ? 'M2 Útiles' : 'M2 Const.'}
               </label>
@@ -620,12 +647,47 @@ export const ValuationForm: React.FC<Props> = ({ onSubmit, isLoading }) => {
           {errors.m2_total && <p className="text-[10px] text-red-500">{errors.m2_total.message}</p>}
         </div>
       </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 md:gap-6 mt-4 pt-4 border-t border-gray-50">
+        <div className="space-y-1">
+          <label className="text-sm font-bold text-orange-800">Esquina</label>
+          <div className="flex items-center h-10">
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input 
+                type="checkbox" 
+                {...register("is_corner")}
+                className="sr-only peer"
+              />
+              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-orange-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-600"></div>
+              <span className="ml-3 text-sm font-medium text-gray-600">¿Es esquina?</span>
+            </label>
+          </div>
+        </div>
+        <div className="md:col-span-2 space-y-1">
+          <label className="text-sm font-bold text-blue-800">Altura máxima según superficie</label>
+          <input 
+            type="text" 
+            placeholder="Ej: 5 pisos (Ajustado por superficie y ubicación)"
+            {...register("height_by_surface")}
+            className="w-full p-2 border border-blue-100 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-blue-50/30"
+          />
+        </div>
+        <div className="space-y-1">
+          <label className="text-sm font-bold text-green-800">Superficie permitida</label>
+          <input 
+            type="text" 
+            placeholder="Ej: 1.500 m2"
+            {...register("allowed_buildable_surface")}
+            className="w-full p-2 border border-green-100 rounded-lg outline-none focus:ring-2 focus:ring-green-500 text-sm bg-green-50/30"
+          />
+        </div>
+      </div>
     </div>
 
       {/* Contenedor 2: Edificación y Atributos */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4 md:gap-6 items-start">
           {propertyType !== 'Sitio Eriazo' && (
-            <>
+            <React.Fragment key="building-basic-fields">
               <div className="space-y-1">
                 <label className="text-sm font-medium text-gray-600">Pisos Edif.</label>
                 <input 
@@ -645,11 +707,11 @@ export const ValuationForm: React.FC<Props> = ({ onSubmit, isLoading }) => {
                   <option value="Entrega Inmediata">Entrega</option>
                 </select>
               </div>
-            </>
+            </React.Fragment>
           )}
 
           {propertyType === 'Sitio Eriazo' ? (
-            <>
+            <React.Fragment key="land-specific-fields">
               <div className="space-y-1">
                 <label className="text-sm font-medium text-gray-600">Topografía</label>
                 <select 
@@ -667,9 +729,9 @@ export const ValuationForm: React.FC<Props> = ({ onSubmit, isLoading }) => {
                   className="w-full p-2 border border-gray-200 rounded-lg outline-none text-sm"
                 />
               </div>
-            </>
+            </React.Fragment>
           ) : (
-            <>
+            <React.Fragment key="building-amenities-fields">
               <div className="space-y-1">
                 <label className="text-sm font-bold text-gray-700">Dorm.</label>
                 <select 
@@ -717,7 +779,7 @@ export const ValuationForm: React.FC<Props> = ({ onSubmit, isLoading }) => {
                   ))}
                 </select>
               </div>
-            </>
+            </React.Fragment>
           )}
         </div>
 
@@ -932,7 +994,7 @@ export const ValuationForm: React.FC<Props> = ({ onSubmit, isLoading }) => {
 
       {/* Normativa Section */}
       {isPremium && (
-        <div className="max-w-7xl mx-auto px-6 mb-8">
+        <div key="premium-normative-section" className="max-w-7xl mx-auto px-6 mb-8">
           <div className="bg-white p-6 rounded-2xl border-2 border-blue-100 shadow-sm">
             <label className="block text-sm font-bold text-slate-800 mb-4 uppercase tracking-widest">Normativa y Urbanismo (PRC)</label>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
@@ -969,6 +1031,39 @@ export const ValuationForm: React.FC<Props> = ({ onSubmit, isLoading }) => {
                 <label className="text-xs font-medium text-gray-500">Estado de Expropiación</label>
                 <input type="text" {...register('expropriation_status')} className="w-full p-1.5 rounded-md border border-gray-200 text-sm" />
               </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-gray-500">Cuotas Estacionamiento</label>
+                <input type="text" {...register('parking_quota')} className="w-full p-1.5 rounded-md border border-gray-200 text-sm" />
+              </div>
+            </div>
+
+            <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6 border-t border-blue-50 pt-6">
+              <div className="space-y-4">
+                <div className="bg-blue-50 p-3 rounded-lg border border-blue-100">
+                  <label className="block text-[10px] font-bold text-blue-800 uppercase mb-1">Cálculo Ocupación de Suelo (OGUC/PRC)</label>
+                  <textarea 
+                    {...register('occupancy_calculation')} 
+                    className="w-full bg-transparent text-xs text-blue-900 border-none focus:ring-0 p-0 resize-none h-12"
+                    placeholder="Cálculo automático de ocupación..."
+                  />
+                </div>
+                <div className="bg-green-50 p-3 rounded-lg border border-green-100">
+                  <label className="block text-[10px] font-bold text-green-800 uppercase mb-1">Cálculo Constructibilidad Máxima</label>
+                  <textarea 
+                    {...register('constructability_calculation')} 
+                    className="w-full bg-transparent text-xs text-green-900 border-none focus:ring-0 p-0 resize-none h-12"
+                    placeholder="Cálculo automático de constructibilidad..."
+                  />
+                </div>
+              </div>
+              <div className="bg-purple-50 p-3 rounded-lg border border-purple-100">
+                <label className="block text-[10px] font-bold text-purple-800 uppercase mb-1">Modificaciones y Enmiendas Recientes (2024-2025)</label>
+                <textarea 
+                  {...register('recent_amendments')} 
+                  className="w-full bg-transparent text-xs text-purple-900 border-none focus:ring-0 p-0 resize-none h-28"
+                  placeholder="Información sobre enmiendas recientes..."
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -976,7 +1071,7 @@ export const ValuationForm: React.FC<Props> = ({ onSubmit, isLoading }) => {
 
       {/* Technical Specifications Section */}
       {isPremium && (
-        <div className="max-w-7xl mx-auto px-6 mb-8">
+        <div key="premium-technical-section" className="max-w-7xl mx-auto px-6 mb-8">
           <div className="bg-white p-6 rounded-2xl border-2 border-slate-100 shadow-sm">
             <label className="block text-sm font-bold text-slate-800 mb-4 uppercase tracking-widest">Especificaciones Técnicas y Estructura</label>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1039,7 +1134,7 @@ export const ValuationForm: React.FC<Props> = ({ onSubmit, isLoading }) => {
 
       {/* Municipal Status Section */}
       {isPremium && (
-        <div className="max-w-7xl mx-auto px-6 mb-8">
+        <div key="premium-municipal-section" className="max-w-7xl mx-auto px-6 mb-8">
           <div className="bg-white p-6 rounded-2xl border-2 border-slate-100 shadow-sm">
             <label className="block text-sm font-bold text-slate-800 mb-4 uppercase tracking-widest">Situación Municipal y Permisos</label>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
@@ -1104,7 +1199,7 @@ export const ValuationForm: React.FC<Props> = ({ onSubmit, isLoading }) => {
 
       <div className="max-w-7xl mx-auto px-6 space-y-4">
         {Object.keys(errors).length > 0 && (
-          <div className="bg-red-50 border border-red-200 p-4 rounded-xl">
+          <div key="validation-errors-alert" className="bg-red-50 border border-red-200 p-4 rounded-xl">
             <p className="text-sm text-red-600 font-bold">Por favor, revisa los campos marcados en rojo. Faltan datos obligatorios.</p>
           </div>
         )}

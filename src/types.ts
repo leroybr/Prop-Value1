@@ -79,6 +79,13 @@ export interface PropertyData {
   grouping?: 'Continuo' | 'Aislado' | 'Pareado';
   cip_status?: string;
   expropriation_status?: string;
+  parking_quota?: string;
+  recent_amendments?: string;
+  occupancy_calculation?: string;
+  constructability_calculation?: string;
+  height_by_surface?: string;
+  allowed_buildable_surface?: string;
+  is_corner?: boolean;
   // Technical Specifications
   access_description?: string;
   distribution_description?: string;
