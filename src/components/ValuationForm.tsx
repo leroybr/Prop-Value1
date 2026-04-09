@@ -5,7 +5,7 @@ import * as z from 'zod';
 import { PropertyData } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { Info, Sparkles, Loader2, X } from 'lucide-react';
-import { getRegulatoryData } from '../services/geminiService';
+import { getRegulatoryData } from '../services/geminiService.ts';
 
 const schema = z.object({
   valuation_type: z.enum(['basic', 'professional']),

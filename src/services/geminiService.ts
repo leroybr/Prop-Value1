@@ -1,5 +1,5 @@
 import { GoogleGenAI, Type } from "@google/genai";
-import { PropertyData, ValuationResult } from "../types";
+import { PropertyData, ValuationResult } from "../types.ts";
 
 let aiInstance: GoogleGenAI | null = null;
 

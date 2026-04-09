@@ -1,5 +1,5 @@
 import React from 'react';
-import { Project } from '../types';
+import { Project } from '../types.ts';
 import { Building2, MapPin, Layers, CheckCircle2, Leaf, Droplets } from 'lucide-react';
 
 interface ProjectListProps {
