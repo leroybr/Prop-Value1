@@ -26,6 +26,22 @@ app.get("/api/market-stats", (req, res) => {
   ]);
 });
 
+// Proxy for UF value to avoid CORS
+app.get("/api/uf", async (req, res) => {
+  try {
+    const response = await fetch('https://mindicador.cl/api/uf');
+    if (!response.ok) throw new Error('Failed to fetch UF from mindicador');
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error('Error proxying UF:', error);
+    // Fallback value if API is down
+    res.json({
+      serie: [{ valor: 38500 }] // Approximate current value
+    });
+  }
+});
+
 async function setupServer() {
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {

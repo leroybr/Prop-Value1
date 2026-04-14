@@ -85,7 +85,14 @@ export interface PropertyData {
   constructability_calculation?: string;
   height_by_surface?: string;
   allowed_buildable_surface?: string;
+  continuous_building_details?: string;
+  verified_land_surface?: number;
+  surface_verification_notes?: string;
+  gis_reference_id?: string;
   is_corner?: boolean;
+  corner_street?: string;
+  street_classification?: string;
+  corner_street_classification?: string;
   // Technical Specifications
   access_description?: string;
   distribution_description?: string;
@@ -98,6 +105,9 @@ export interface PropertyData {
   finishes_floors?: string;
   finishes_ceilings?: string;
   sanitary_artifacts?: string;
+  kitchen_description?: string;
+  bathrooms_description?: string;
+  rtv_status?: string;
   land_shape?: string;
   land_topography?: string;
   front_depth_ratio?: string;

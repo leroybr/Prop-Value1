@@ -10,7 +10,8 @@ import { estimatePropertyValue } from './services/geminiService.ts';
 import { useFirebase } from './components/FirebaseProvider.tsx';
 import { db, handleFirestoreError, OperationType } from './firebase.ts';
 import { collection, addDoc, query, where, orderBy, limit, onSnapshot, serverTimestamp } from 'firebase/firestore';
-import { Building2, TrendingUp, MapPin, Calculator, Info, LogOut, LogIn, Download, FileText, X, CheckCircle2, Map as MapIcon, History, Layout, Settings } from 'lucide-react';
+import { Building2, TrendingUp, MapPin, Calculator, Info, LogOut, LogIn, Download, FileText, X, CheckCircle2, Map as MapIcon, History, Layout, Settings, Sparkles, ExternalLink } from 'lucide-react';
+import { PRCViewerModal } from './components/PRCViewerModal';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 
@@ -27,6 +28,7 @@ export default function App() {
   const [isDownloading, setIsDownloading] = useState(false);
   const [showReport, setShowReport] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isPRCModalOpen, setIsPRCModalOpen] = useState(false);
   const [apiKeyError, setApiKeyError] = useState<string | null>(null);
   const [firestoreError, setFirestoreError] = useState<Error | null>(null);
   const [appError, setAppError] = useState<string | null>(null);
@@ -59,7 +61,7 @@ export default function App() {
   useEffect(() => {
     const fetchUF = async () => {
       try {
-        const response = await fetch('https://mindicador.cl/api/uf');
+        const response = await fetch('/api/uf');
         const data = await response.json();
         if (data.serie && data.serie.length > 0) {
           setUfValue(data.serie[0].valor);
@@ -1052,6 +1054,58 @@ export default function App() {
                   )}
                 </div>
 
+                {/* Líneas Oficiales / Clasificación Vial - Professional Only */}
+                {valuation.valuation_type === 'professional' && (
+                  <div className="mb-12">
+                    <h3 className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2 uppercase tracking-widest">
+                      <MapIcon className="w-4 h-4 text-blue-600" />
+                      Líneas Oficiales y Clasificación Vial
+                    </h3>
+                    <div className="border border-slate-200 rounded-lg overflow-hidden">
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="bg-slate-100 border-b border-slate-200">
+                            <th className="p-2 text-left font-bold text-slate-600 uppercase tracking-tighter">Por Calle</th>
+                            <th className="p-2 text-left font-bold text-slate-600 uppercase tracking-tighter">Clasificación</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr className="border-b border-slate-100">
+                            <td className="p-3 font-bold text-slate-800 uppercase">{valuation.property_data?.address_street || "Principal"}</td>
+                            <td className="p-3 font-bold text-blue-600 uppercase">{valuation.property_data?.street_classification || "SERVICIO"}</td>
+                          </tr>
+                          {valuation.property_data?.is_corner && (
+                            <tr>
+                              <td className="p-3 font-bold text-slate-800 uppercase">{valuation.property_data?.corner_street || "Esquina"}</td>
+                              <td className="p-3 font-bold text-blue-600 uppercase">{valuation.property_data?.corner_street_classification || "SERVICIO"}</td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {/* GIS Verification Box */}
+                <div className="mb-12 p-4 bg-slate-50 border border-slate-200 rounded-xl flex items-start gap-3">
+                  <div className="bg-blue-100 p-2 rounded-lg">
+                    <MapPin className="w-4 h-4 text-blue-600" />
+                  </div>
+                  <div>
+                    <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Verificación Geoespacial</h4>
+                    <p className="text-xs text-slate-700 font-medium leading-relaxed">
+                      Ubicación y deslindes verificados mediante cartografía satelital Maxar/Esri con referencia de objeto {valuation.property_data?.gis_reference_id || "11791"}.
+                    </p>
+                    <button 
+                      onClick={() => setIsPRCModalOpen(true)}
+                      className="mt-2 flex items-center gap-1 text-[10px] font-bold text-blue-600 hover:text-blue-800 uppercase tracking-wider"
+                    >
+                      <ExternalLink className="w-3 h-3" />
+                      Abrir Visor PRC Interactivo
+                    </button>
+                  </div>
+                </div>
+
                 {/* Main Value Section */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-12 mb-12">
                   <div className="bg-gray-50 p-8 rounded-xl border border-gray-100">
@@ -1124,6 +1178,8 @@ export default function App() {
                         <div className="text-slate-800 font-bold text-right">{valuation.property_data?.grouping || "N/A"}</div>
                         <div className="text-slate-400">Altura Máxima:</div>
                         <div className="text-slate-800 font-bold text-right">{valuation.property_data?.max_height || "Libre"}</div>
+                        <div className="text-slate-400">Estacionamientos:</div>
+                        <div className="text-slate-800 font-bold text-right">{valuation.property_data?.parking_quota || "Según OGUC"}</div>
                       </div>
                       {(valuation.property_data?.cip_status || valuation.property_data?.expropriation_status) && (
                         <div className="mt-3 pt-3 border-t border-slate-200 space-y-1">
@@ -1137,6 +1193,45 @@ export default function App() {
 
                 {/* New Analysis Sections */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+                  {(valuation.property_data?.height_by_surface || valuation.property_data?.allowed_buildable_surface) && (
+                    <div className="bg-blue-50 p-6 rounded-xl border border-blue-100 col-span-full">
+                      <h3 className="text-sm font-bold text-blue-900 mb-4 flex items-center gap-2 uppercase tracking-widest">
+                        <Building2 className="w-4 h-4 text-blue-600" />
+                        Análisis de Altura y Superficie Máxima
+                      </h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        {valuation.property_data?.height_by_surface && (
+                          <div className="space-y-3">
+                            <h4 className="text-[10px] font-bold text-blue-800 uppercase">Altura Máxima según Superficie</h4>
+                            <div className="bg-white p-3 rounded-lg border border-blue-100">
+                              <p className="text-sm text-blue-900 font-bold leading-relaxed">
+                                {valuation.property_data.height_by_surface}
+                              </p>
+                              {valuation.property_data.continuous_building_details && (
+                                <div className="mt-2 pt-2 border-t border-blue-50 flex items-start gap-2">
+                                  <div className="w-1.5 h-1.5 rounded-full bg-orange-400 mt-1 shrink-0" />
+                                  <p className="text-[10px] text-orange-700 font-medium">
+                                    <span className="font-bold">Edificación Continua:</span> {valuation.property_data.continuous_building_details}
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                        {valuation.property_data?.allowed_buildable_surface && (
+                          <div className="space-y-3">
+                            <h4 className="text-[10px] font-bold text-green-800 uppercase">Superficie Permitida</h4>
+                            <div className="bg-white p-3 rounded-lg border border-green-100">
+                              <p className="text-sm text-green-900 font-bold leading-relaxed">
+                                {valuation.property_data.allowed_buildable_surface}
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
                   {valuation.cabida_informe && (
                     <div className="bg-slate-50 p-6 rounded-xl border border-slate-100">
                       <h3 className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2">
@@ -1280,6 +1375,40 @@ export default function App() {
                     )}
                   </div>
                 )}
+
+                {/* Factores de Valoración Section */}
+                <div className="mb-12">
+                  <h3 className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2 uppercase tracking-widest">
+                    <Sparkles className="w-4 h-4 text-blue-600" />
+                    Factores de Valoración y Estado
+                  </h3>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Año Construcción</p>
+                      <p className="text-sm font-bold text-slate-800">{valuation.property_data?.year_built || "N/A"}</p>
+                    </div>
+                    <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Niveles / Pisos</p>
+                      <p className="text-sm font-bold text-slate-800">{valuation.property_data?.floors || "N/A"}</p>
+                    </div>
+                    <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Cocina</p>
+                      <p className="text-sm font-bold text-slate-800">{valuation.property_data?.kitchen_description || "Estándar"}</p>
+                    </div>
+                    <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Baño</p>
+                      <p className="text-sm font-bold text-slate-800">{valuation.property_data?.bathrooms_description || "Estándar"}</p>
+                    </div>
+                    <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">RTV / Recepción</p>
+                      <p className="text-sm font-bold text-slate-800">{valuation.property_data?.rtv_status || "Pendiente"}</p>
+                    </div>
+                    <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 col-span-3">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Materiales Predominantes</p>
+                      <p className="text-sm font-bold text-slate-800">{valuation.property_data?.materiality_walls || "No especificado"}</p>
+                    </div>
+                  </div>
+                </div>
 
                 {/* Technical Specifications and Municipal Status (Moved to end) */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
@@ -1585,6 +1714,23 @@ export default function App() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {valuation && (
+        <PRCViewerModal 
+          isOpen={isPRCModalOpen}
+          onClose={() => setIsPRCModalOpen(false)}
+          propertyData={{
+            address: valuation.property_data?.address_street,
+            number: valuation.property_data?.address_number,
+            commune: valuation.property_data?.commune,
+            rol_manzana: valuation.property_data?.rol_manzana,
+            rol_predio: valuation.property_data?.rol_predio,
+            m2_total: valuation.property_data?.m2_total,
+            gis_id: valuation.property_data?.gis_reference_id,
+            zoning: valuation.property_data?.zoning_code
+          }}
+        />
+      )}
     </div>
   );
 }

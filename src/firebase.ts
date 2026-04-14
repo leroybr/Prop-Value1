@@ -1,4 +1,4 @@
-import { initializeApp } from 'firebase/app';
+import { initializeApp, getApp, getApps } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, User } from 'firebase/auth';
 import { initializeFirestore, collection, doc, setDoc, getDoc, getDocs, query, where, orderBy, limit, onSnapshot, serverTimestamp, getDocFromServer } from 'firebase/firestore';
 import firebaseConfigJson from '../firebase-applet-config.json';
@@ -29,14 +29,21 @@ if (!firebaseConfig.apiKey || firebaseConfig.apiKey === "undefined") {
   console.error("CRITICAL ERROR: Firebase API Key is missing! Check your Vercel Environment Variables or firebase-applet-config.json.");
 }
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
+// Initialize Firebase safely
+const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 export const auth = getAuth(app);
 
-// Use initializeFirestore with long polling to avoid connection issues in some environments
-export const db = initializeFirestore(app, {
+// Use initializeFirestore with settings and databaseId
+// We use experimentalForceLongPolling and useFetchStreams: false to maximize compatibility
+// in restricted network environments (like some corporate proxies or sandboxes)
+const dbSettings = {
   experimentalForceLongPolling: true,
-}, firestoreDatabaseId);
+  useFetchStreams: false,
+  ignoreUndefinedProperties: true,
+};
+
+// If firestoreDatabaseId is empty or undefined, Firestore uses '(default)'
+export const db = initializeFirestore(app, dbSettings, firestoreDatabaseId || '(default)');
 
 export const googleProvider = new GoogleAuthProvider();
 
@@ -96,13 +103,23 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
   throw new Error(JSON.stringify(errInfo));
 }
 
-// Connection test
+// Connection test with detailed logging
 async function testConnection() {
+  console.log("Starting Firestore connection test...");
   try {
+    // Try to get a document from the server to verify connectivity
     await getDocFromServer(doc(db, 'test', 'connection'));
+    console.log("Firestore connection test: SUCCESS (Server reached)");
   } catch (error) {
-    if(error instanceof Error && error.message.includes('the client is offline')) {
-      console.error("Please check your Firebase configuration. The client is offline.");
+    const message = error instanceof Error ? error.message : String(error);
+    console.warn("Firestore connection test: FAILED", {
+      error: message,
+      projectId: firebaseConfig.projectId,
+      databaseId: firestoreDatabaseId || '(default)'
+    });
+    
+    if (message.includes('the client is offline')) {
+      console.error("CRITICAL: The client is offline. This usually means the Firebase configuration (Project ID or Database ID) is incorrect or the database hasn't been provisioned.");
     }
   }
 }

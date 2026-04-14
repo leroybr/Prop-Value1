@@ -33,7 +33,10 @@ export async function getRegulatoryData(
   rolPredio?: string,
   currentZoningCode?: string,
   m2_total?: number,
-  is_corner?: boolean
+  is_corner?: boolean,
+  corner_street?: string,
+  street_classification?: string,
+  corner_street_classification?: string
 ): Promise<{
   zoning_code: string;
   max_height: number;
@@ -47,28 +50,45 @@ export async function getRegulatoryData(
   constructability_calculation: string;
   height_by_surface: string;
   allowed_buildable_surface: string;
+  verified_land_surface?: number;
+  surface_verification_notes?: string;
+  street_classification?: string;
+  corner_street_classification?: string;
 }> {
-  console.log("Consultando normativa detallada para:", { commune, sector, rol, street, number, rolManzana, rolPredio, currentZoningCode, m2_total });
+  console.log("Consultando normativa detallada para:", { commune, sector, rol, street, number, rolManzana, rolPredio, currentZoningCode, m2_total, corner_street, street_classification, corner_street_classification });
   const ai = getAi();
   const prompt = `
     Act as a Senior Chilean Urban Planning Expert (Arquitecto Revisor DOM). 
-    Your task is to provide the urban norms (normas urbanísticas) from the "Plano Regulador Comunal" (PRC) for the following location.
+    Your task is to provide the urban norms (normas urbanísticas) from the "Plano Regulador Comunal" (PRC) and "Ordenanza General de Urbanismo y Construcciones" (OGUC) for the following location.
     
     Location:
     - Commune: ${commune}
     - Sector/Neighborhood: ${sector}
-    - Address: ${street || ""} ${number || ""}
+    - Address: ${street || ""} ${number || ""} (Clasificación: ${street_classification || "Desconocida"})
     - Rol SII (Combined): ${rol}
     - Rol SII (Manzana): ${rolManzana || "Not specified"}
     - Rol SII (Predio): ${rolPredio || "Not specified"}
     - User-Provided Zoning Code (Zona PRC): ${currentZoningCode || "Not specified"}
-    - Total Land Surface (Superficie Predial): ${m2_total || "Not specified"} m2
+    - Total Land Surface (Superficie Predial proporcionada por usuario): ${m2_total || "Not specified"} m2
     - Es Esquina (Is Corner Lot): ${is_corner ? "SÍ" : "NO"}
+    - Calle Esquina (Corner Street): ${corner_street || "Not specified"} (Clasificación: ${corner_street_classification || "Desconocida"})
     
-    Reference Document Search:
+    Reference Document Search & Sources:
     - Use Google Search to find the official "Ordenanza del Plano Regulador Comunal" (PRC) or "Plan Regulador Metropolitano" (PRM) for ${commune}.
+    - Primary Source: Official Municipal PRC documents and Zoning Maps.
+    - Secondary Source: OGUC (Ordenanza General de Urbanismo y Construcciones) for national standards.
     - If the commune is "Concepción", you may also reference: http://www.concepcion.cl/Obras/instru-plan-regulador/prcc.pdf
-    - Your goal is to identify the specific zone (e.g., ZH-1, ZM-2, CPH, ESC1) where the property is located based on its ROL (${rol}) or Address (${street} ${number}).
+    
+    Deep Analysis Requirements:
+    1. SURFACE VERIFICATION (CRITICAL): Verify the land surface using the ROL SII and Address. 
+       - Compare the user-provided surface (${m2_total} m2) with official records if found.
+       - Identify if there are mandatory discounts (e.g., proximity to railways, public utility strips, or expropriations).
+    2. CORNER ANALYSIS: If it is a corner lot (${is_corner ? "SÍ" : "NO"}), identify specific benefits or restrictions (e.g., higher constructability, different setbacks, or mandatory chamfers/ochavos).
+       - IMPORTANT: Distinguish the streets forming the corner. Identify if they are "Troncal", "Colectora", "Servicio" or "Local". This classification affects the "Línea Oficial" and "Antejardín".
+    3. BOUNDARY & LIMITS (DESLINDES): Analyze the zoning map and ordinance for specific boundary constraints. 
+       - Check for proximity to RAILWAYS (Vías férreas), HIGHWAYS, or WATERCOURSES.
+       - Identify mandatory buffer zones (franjas de protección/restricción). Example: Proximity to a train track often requires a 20m+ non-buildable strip.
+    4. SITE-SPECIFIC CONSTRAINTS: Look for "Zonas de Riesgo" (Flood, Landslide) or "Zonas de Conservación Histórica" that apply specifically to this ROL or block.
     
     Context for PRC Structure:
     The regulatory ordinance (Ordenanza del Plano Regulador) defines zones and for each zone, it specifies:
@@ -81,12 +101,17 @@ export async function getRegulatoryData(
         - Sistema de Agrupamiento (Aislado, Pareado, Continuo).
         - Antejardín Mínimo.
         - Densidad Habitacional Máxima.
-    
-    Specific Knowledge for Concepción (if applicable):
-    - Manzana 1172 in Concepción corresponds to zone "ESC1".
-    - The sector "Pedro de Valdivia" in Concepción is characterized by zone "ESC1" in many areas.
-    - CPH zones (Centro de Protección Histórica) are key in Concepción Centro.
-    - In zone ESC1, the maximum height (Altura Máxima) is strictly tied to the lot size (Superficie Predial). For ~500m2, it's usually 2 floors (~7-9m).
+
+    Specific Knowledge for Concepción (Reference from Official CIP):
+    - For high-density zones (like ZM-1, CC, or similar in the center):
+        - Superficie Predial Mínima: 400 m2.
+        - Coeficiente de Ocupación de Suelo: 0.6 (general).
+        - Coeficiente de Constructibilidad: 4.0.
+        - Altura Máxima de Edificación: 27m (equivalente a 9 pisos).
+        - Altura Máxima de Edificación Continua: 9m.
+        - Antejardín Mínimo: 4m (general).
+        - Densidad Bruta Máxima: Libre.
+        - Incentivos (Art 40 O.L.P.R.C.C.): Permiten aumentar altura continua a 15m (5 pisos) y ocupación al 80% bajo ciertas condiciones (ej: capa vegetal en cubierta).
     
     Instructions:
     1. Extract the specific values for the identified zone from the PRC of ${commune}.
@@ -97,15 +122,19 @@ export async function getRegulatoryData(
     - zoning_code: The specific zone code (e.g., ZH-1, RM-2, CPH, CC, H-1, ESC1, ZM-1).
     - max_height: Maximum built height allowed in meters (number).
     - constructability_index: Coefficient of constructability (number).
-    - land_use_coefficient: Land occupation coefficient (number, e.g., 0.6). Reference the Ordenanza General de Urbanismo y Construcciones (OGUC) and local PRC.
+    - land_use_coefficient: Land occupation coefficient (number, e.g., 0.6). Reference the OGUC and local PRC.
     - property_usage: Primary allowed usage (Habitacional, Comercial, Agrícola, or Esparcimiento o Cultura).
-    - setback: Minimum setback (Antejardín) in meters or description (string, e.g., "3 m", "No se exige").
+    - setback: Minimum setback (Antejardín) in meters or description (string). Include corner-specific setbacks if applicable.
     - parking_quota: Specific parking quotas for the commune and zone (string).
     - recent_amendments: Any recent modifications or amendments (Enmiendas) to the PRC (2024-2025) (string).
-    - occupancy_calculation: A brief explanation of the ground floor occupancy based on the lot size (${m2_total || "unknown"} m2) and if it is a corner lot (${is_corner ? "SÍ" : "NO"}). Example: "Podrás ocupar aproximadamente X m2 en la planta baja."
-    - constructability_calculation: A brief explanation of the total buildable area based on the lot size (${m2_total || "unknown"} m2). Example: "Se permite una superficie total edificada de hasta Y m2 sumando todos los pisos."
+    - occupancy_calculation: A brief explanation of the ground floor occupancy based on the lot size (${m2_total || "unknown"} m2) and if it is a corner lot (${is_corner ? "SÍ" : "NO"}). Include any boundary restrictions found (e.g., "Se debe descontar franja de protección de ferrocarriles").
+    - constructability_calculation: A brief explanation of the total buildable area based on the lot size (${m2_total || "unknown"} m2).
     - height_by_surface: The maximum number of floors allowed specifically based on the surface area of this lot (${m2_total || "unknown"} m2) and if it is a corner lot (${is_corner ? "SÍ" : "NO"}).
-    - allowed_buildable_surface: The total surface area (m2) that can be built on this lot based on the constructability index and lot size (${m2_total || "unknown"} m2). If it is a corner lot, adjust accordingly if the PRC specifies benefits or changes.
+    - allowed_buildable_surface: The total surface area (m2) that can be built on this lot based on the constructability index and lot size (${m2_total || "unknown"} m2). Adjust for corner benefits or boundary restrictions.
+    - verified_land_surface: The official land surface (m2) found in records (SII/PRC) for this ROL/Address. If not found, use the provided value but explain in notes.
+    - surface_verification_notes: Observations about the surface (e.g., "Coincide con SII", "Se detecta diferencia con plano regulador", "Franja de ferrocarril descuenta 50m2").
+    - street_classification: The official classification of the main street (Troncal, Colectora, Servicio, Local).
+    - corner_street_classification: The official classification of the corner street if applicable.
     
     Important: If you find multiple sub-zones, provide the data for the most restrictive or most common one in that specific sector.
   `;
@@ -130,9 +159,13 @@ export async function getRegulatoryData(
             occupancy_calculation: { type: Type.STRING },
             constructability_calculation: { type: Type.STRING },
             height_by_surface: { type: Type.STRING },
-            allowed_buildable_surface: { type: Type.STRING }
+            allowed_buildable_surface: { type: Type.STRING },
+            verified_land_surface: { type: Type.NUMBER },
+            surface_verification_notes: { type: Type.STRING },
+            street_classification: { type: Type.STRING },
+            corner_street_classification: { type: Type.STRING }
           },
-          required: ["zoning_code", "max_height", "constructability_index", "land_use_coefficient", "property_usage", "setback", "parking_quota", "recent_amendments", "occupancy_calculation", "constructability_calculation", "height_by_surface", "allowed_buildable_surface"]
+          required: ["zoning_code", "max_height", "constructability_index", "land_use_coefficient", "property_usage", "setback", "parking_quota", "recent_amendments", "occupancy_calculation", "constructability_calculation", "height_by_surface", "allowed_buildable_surface", "verified_land_surface", "surface_verification_notes"]
         },
         tools: [
           { urlContext: {} },
@@ -167,7 +200,9 @@ export async function estimatePropertyValue(data: PropertyData, ufValue: number)
     Property Details:
     - Client: ${data.client_name || "Not specified"}
     - Type: ${data.property_type}
-    - Address: ${data.address_street || ""} ${data.address_number || ""}
+    - Address: ${data.address_street || ""} ${data.address_number || ""} (Clasificación: ${data.street_classification || "N/A"})
+    - Is Corner: ${data.is_corner ? "Yes" : "No"}
+    - Corner Street: ${data.corner_street || "N/A"} (Clasificación: ${data.corner_street_classification || "N/A"})
     - Commune: ${data.commune}
     - Sector/Neighborhood: ${data.sector || "Not specified"}
     - Sector Description: ${data.sector_description || "Not specified"}
@@ -175,6 +210,7 @@ export async function estimatePropertyValue(data: PropertyData, ufValue: number)
     - Rol SII (Manzana): ${data.rol_manzana || "Not provided"}
     - Rol SII (Predio): ${data.rol_predio || "Not provided"}
     - Avalúo Fiscal (CLP): ${data.avaluo_fiscal || "Not provided"}
+    - GIS Reference ID: ${data.gis_reference_id || "Not provided"}
     - Zoning Code (Plano Regulador): ${data.zoning_code || "Not specified"}
     - Destino (Usage): ${data.property_usage || "Not specified"}
     - Useful m2: ${data.m2_useful}
@@ -192,6 +228,9 @@ export async function estimatePropertyValue(data: PropertyData, ufValue: number)
     - Topography (for land): ${data.topography || "N/A"}
     - Frontage (meters): ${data.frontage_m || "N/A"}
     - Max Built Height (Altura Construida): ${data.max_height || "Not specified"}
+    - Height by Surface (Altura según superficie): ${data.height_by_surface || "N/A"}
+    - Continuous Building Details: ${data.continuous_building_details || "N/A"}
+    - Allowed Buildable Surface: ${data.allowed_buildable_surface || "N/A"}
     - Constructability Index: ${data.constructability_index || "Not specified"}
     - Land Use Coefficient (Coef. Ocupación Suelo): ${data.land_use_coefficient || "Not specified"}
     - Min Lot Size: ${data.min_lot_size || "N/A"} m2
@@ -231,6 +270,9 @@ export async function estimatePropertyValue(data: PropertyData, ufValue: number)
     - View Quality: ${data.view_quality || "Parcial"}
     - Security Level: ${data.security_level || "Media"}
     - Noise Level: ${data.noise_level || "Moderado"}
+    - Kitchen: ${data.kitchen_description || "N/A"}
+    - Bathrooms: ${data.bathrooms_description || "N/A"}
+    - RTV/Reception Status: ${data.rtv_status || "N/A"}
     - Proximity to Metro: ${data.proximity_to_metro ? "Yes" : "No"}
     - Proximity to Services: ${data.proximity_to_services?.join(", ") || "None"}
     
@@ -260,6 +302,9 @@ export async function estimatePropertyValue(data: PropertyData, ufValue: number)
     Regulatory & Market Context:
     - Current UF Value: ${ufValue} CLP.
     - Consider the "Plano Regulador Comunal" (PRC) constraints for ${data.commune}${data.sector ? ` in ${data.sector}` : ""}.
+    - Specific Knowledge for Concepción (Reference from Official CIP):
+        - For high-density zones: Constructability 4.0, Max Height 27m (9 floors), Continuous Height 9m, Land Occupancy 0.6.
+        - Article 40 Incentives: Can increase continuous height to 15m and occupancy to 80% with green roofs.
     - If Rol SII is provided, consider its impact on tax assessment and specific location.
     - Specific Knowledge for Concepción: Manzana 1172 corresponds to zone "ESC1". CPH is the most common zone in the "Centro" sector.
     - Analyze the development potential based on the zoning code (${data.zoning_code || "Not specified"}).

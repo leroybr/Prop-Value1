@@ -4,8 +4,21 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { PropertyData } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
-import { Info, Sparkles, Loader2, X } from 'lucide-react';
+import { Info, Sparkles, Loader2, X, Calculator, MapPin, ExternalLink } from 'lucide-react';
+import { PRCViewerModal } from './PRCViewerModal';
 import { getRegulatoryData } from '../services/geminiService.ts';
+
+const optionalNumber = z.preprocess((val) => {
+  if (val === "" || val === null || val === undefined) return undefined;
+  const num = Number(val);
+  return isNaN(num) ? undefined : num;
+}, z.number().optional());
+
+const requiredNumber = (msg: string) => z.preprocess((val) => {
+  if (val === "" || val === null || val === undefined) return undefined;
+  const num = Number(val);
+  return isNaN(num) ? undefined : num;
+}, z.number().min(1, msg));
 
 const schema = z.object({
   valuation_type: z.enum(['basic', 'professional']),
@@ -13,29 +26,31 @@ const schema = z.object({
   rol_sii: z.string().optional(),
   rol_manzana: z.string().optional(),
   rol_predio: z.string().optional(),
-  avaluo_fiscal: z.number().optional(),
+  avaluo_fiscal: optionalNumber,
   address_street: z.string().optional(),
   address_number: z.string().optional(),
   commune: z.string().min(1, "La comuna es requerida"),
   sector: z.string().optional(),
   zoning_code: z.string().optional(),
   property_usage: z.enum(['Habitacional', 'Comercial', 'Agrícola', 'Esparcimiento o Cultura']).optional(),
-  m2_useful: z.number().min(0).optional().default(0),
-  m2_total: z.number().min(1, "M2 totales requeridos"),
-  bedrooms: z.number().min(0).optional().default(0),
-  bathrooms: z.number().min(0).optional().default(0),
-  parking: z.number().min(0).optional().default(0),
-  storage: z.number().min(0).optional().default(0),
-  year_built: z.number().min(1900).max(2026).optional(),
-  floors: z.number().min(0).optional(),
+  m2_useful: optionalNumber,
+  m2_total: requiredNumber("M2 totales requeridos"),
+  bedrooms: optionalNumber,
+  bathrooms: optionalNumber,
+  parking: optionalNumber,
+  storage: optionalNumber,
+  year_built: z.preprocess((val) => (val === "" || val === null || val === undefined ? undefined : Number(val)), z.number().min(1900).max(2026).optional()),
+  orientation: z.string().optional(),
+  gastos_comunes: optionalNumber,
+  floors: optionalNumber,
   project_status: z.string().optional(),
   amenities: z.array(z.string()).optional(),
   sustainability_features: z.array(z.string()).optional(),
   topography: z.enum(['Plano', 'Pendiente Suave', 'Pendiente Fuerte']).optional(),
-  frontage_m: z.number().min(0).optional(),
-  max_height: z.number().min(0).optional(),
-  constructability_index: z.number().min(0).optional(),
-  land_use_coefficient: z.number().min(0).optional(),
+  frontage_m: optionalNumber,
+  max_height: optionalNumber,
+  constructability_index: optionalNumber,
+  land_use_coefficient: optionalNumber,
   // New Factors
   conservation_state: z.enum(['Excelente', 'Bueno', 'Regular', 'Malo']).optional(),
   construction_quality: z.enum(['Superior', 'Media', 'Económica']).optional(),
@@ -45,7 +60,7 @@ const schema = z.object({
   security_level: z.enum(['Alta', 'Media', 'Baja']).optional(),
   noise_level: z.enum(['Silencioso', 'Moderado', 'Ruidoso']).optional(),
   // Rural/Agricultural specific fields
-  num_lots: z.number().min(1).optional(),
+  num_lots: optionalNumber,
   water_availability: z.enum(['Abundante', 'Suficiente', 'Escasa']).optional(),
   electricity_system: z.enum(['Público', 'Privado', 'Generador']).optional(),
   materiality_walls: z.string().optional(),
@@ -57,8 +72,8 @@ const schema = z.object({
   disadvantages: z.string().optional(),
   client_name: z.string().optional(),
   sector_description: z.string().optional(),
-  min_lot_size: z.number().min(0).optional(),
-  min_frontage: z.number().min(0).optional(),
+  min_lot_size: optionalNumber,
+  min_frontage: optionalNumber,
   density: z.string().optional(),
   setback: z.string().optional(),
   grouping: z.enum(['Continuo', 'Aislado', 'Pareado']).optional(),
@@ -70,7 +85,14 @@ const schema = z.object({
   constructability_calculation: z.string().optional(),
   height_by_surface: z.string().optional(),
   allowed_buildable_surface: z.string().optional(),
+  continuous_building_details: z.string().optional(),
+  verified_land_surface: optionalNumber,
+  surface_verification_notes: z.string().optional(),
+  gis_reference_id: z.string().optional(),
   is_corner: z.boolean().optional(),
+  corner_street: z.string().optional(),
+  street_classification: z.string().optional(),
+  corner_street_classification: z.string().optional(),
   access_description: z.string().optional(),
   distribution_description: z.string().optional(),
   structure_muros: z.string().optional(),
@@ -82,6 +104,9 @@ const schema = z.object({
   finishes_floors: z.string().optional(),
   finishes_ceilings: z.string().optional(),
   sanitary_artifacts: z.string().optional(),
+  kitchen_description: z.string().optional(),
+  bathrooms_description: z.string().optional(),
+  rtv_status: z.string().optional(),
   land_shape: z.string().optional(),
   land_topography: z.string().optional(),
   front_depth_ratio: z.string().optional(),
@@ -97,6 +122,7 @@ interface Props {
 }
 
 const propertyTypes = ['Departamento', 'Casa', 'Sitio Eriazo', 'Oficina', 'Local Comercial', 'Agrícola / Parcela', 'Teatro'];
+const streetClassifications = ['Troncal', 'Colectora', 'Servicio', 'Local'];
 const topographyOptions = ['Plano', 'Pendiente Suave', 'Pendiente Fuerte'];
 const conservationOptions = ['Excelente', 'Bueno', 'Regular', 'Malo'];
 const qualityOptions = ['Superior', 'Media', 'Económica'];
@@ -120,7 +146,7 @@ const sustainabilityOptions = ["Paneles Solares", "Aislación Térmica", "Recicl
 
 export const ValuationForm: React.FC<Props> = ({ onSubmit, isLoading }) => {
   const { register, handleSubmit, formState: { errors }, setValue, watch } = useForm<PropertyData>({
-    resolver: zodResolver(schema),
+    resolver: zodResolver(schema) as any,
     defaultValues: {
       valuation_type: 'basic',
       property_type: 'Departamento',
@@ -153,6 +179,7 @@ export const ValuationForm: React.FC<Props> = ({ onSubmit, isLoading }) => {
 
   const [usageSearch, setUsageSearch] = React.useState("");
   const [showUsageOptions, setShowUsageOptions] = React.useState(false);
+  const [isPRCModalOpen, setIsPRCModalOpen] = React.useState(false);
   const [isFetchingNorms, setIsFetchingNorms] = React.useState(false);
   const [fetchError, setFetchError] = React.useState<string | null>(null);
 
@@ -192,7 +219,10 @@ export const ValuationForm: React.FC<Props> = ({ onSubmit, isLoading }) => {
       const currentZoningCode = watch("zoning_code");
       const m2Total = watch("m2_total");
       const isCorner = watch("is_corner");
-      const data = await getRegulatoryData(commune, sector || "", rol || "", street || "", number || "", rolManzana, rolPredio, currentZoningCode, m2Total, isCorner);
+      const cornerStreet = watch("corner_street");
+      const streetClass = watch("street_classification");
+      const cornerStreetClass = watch("corner_street_classification");
+      const data = await getRegulatoryData(commune, sector || "", rol || "", street || "", number || "", rolManzana, rolPredio, currentZoningCode, m2Total, isCorner, cornerStreet, streetClass, cornerStreetClass);
       if (!data) throw new Error("No se recibieron datos de la IA.");
       
       setValue("zoning_code", data.zoning_code);
@@ -207,6 +237,10 @@ export const ValuationForm: React.FC<Props> = ({ onSubmit, isLoading }) => {
       setValue("constructability_calculation", data.constructability_calculation);
       setValue("height_by_surface", data.height_by_surface);
       setValue("allowed_buildable_surface", data.allowed_buildable_surface);
+      setValue("verified_land_surface", data.verified_land_surface);
+      setValue("surface_verification_notes", data.surface_verification_notes);
+      if (data.street_classification) setValue("street_classification", data.street_classification);
+      if (data.corner_street_classification) setValue("corner_street_classification", data.corner_street_classification);
       setUsageSearch(data.property_usage);
     } catch (error: any) {
       console.error("Error fetching norms:", error);
@@ -216,6 +250,18 @@ export const ValuationForm: React.FC<Props> = ({ onSubmit, isLoading }) => {
       setIsFetchingNorms(false);
     }
   };
+
+  const heightBySurface = watch("height_by_surface");
+  const allowedSurface = watch("allowed_buildable_surface");
+
+  React.useEffect(() => {
+    // Auto-resize textareas when values change (e.g. from IA fetch)
+    const textareas = document.querySelectorAll('textarea');
+    textareas.forEach(ta => {
+      ta.style.height = 'auto';
+      ta.style.height = ta.scrollHeight + 'px';
+    });
+  }, [heightBySurface, allowedSurface]);
 
   const filteredUsageOptions = usageOptions.filter(opt => 
     opt.toLowerCase().includes(usageSearch.toLowerCase())
@@ -288,6 +334,21 @@ export const ValuationForm: React.FC<Props> = ({ onSubmit, isLoading }) => {
                 setValue('commune', 'Concepción');
                 setValue('address_street', 'Aníbal Pinto');
                 setValue('address_number', '343');
+                setValue('gis_reference_id', '11791');
+                setValue('height_by_surface', '15 metros (Aprox. 5 pisos)');
+                setValue('continuous_building_details', '9m de altura máxima para edificación continua');
+                setValue('allowed_buildable_surface', '1.250 m² totales');
+                setValue('parking_quota', '1 cada 50 m2');
+                setValue('year_built', 2015);
+                setValue('floors', 1);
+                setValue('materiality_walls', 'Albañilería Reforzada');
+                setValue('kitchen_description', 'Kitchenette integrada');
+                setValue('bathrooms_description', 'Baño universal accesible');
+                setValue('rtv_status', 'Recepción Parcial');
+                setValue('street_classification', 'Troncal');
+                setValue('is_corner', true);
+                setValue('corner_street', 'San Martín');
+                setValue('corner_street_classification', 'Servicio');
                 setValue('sector', 'Centro / Plaza de Armas (Local 29)');
                 setValue('rol_manzana', '136');
                 setValue('rol_predio', '126');
@@ -300,9 +361,19 @@ export const ValuationForm: React.FC<Props> = ({ onSubmit, isLoading }) => {
                 setValue('construction_quality', 'Media');
                 setValue('security_level', 'Alta');
                 setValue('noise_level', 'Moderado');
+                setValue('year_built', 1961);
+                setValue('floors', 2);
+                setValue('materiality_walls', 'Hormigón Armado y Albañilería');
+                setValue('kitchen_description', 'Cocina equipada, muebles de madera');
+                setValue('bathrooms_description', 'Porcelanato, grifería de alta calidad');
+                setValue('rtv_status', 'Recepción Total');
                 setValue('view_quality', 'Despejada');
                 setValue('zoning_code', 'CPH (Centro y Plazas Históricas)');
+                setValue('height_by_surface', '27 metros (Aprox. 9 pisos)');
+                setValue('continuous_building_details', '15m de altura máxima para edificación continua (Art. 40)');
+                setValue('allowed_buildable_surface', '4.795 m² totales');
                 setValue('max_height', 11);
+                setValue('parking_quota', '1 cada 40 m2 útiles');
                 setValue('constructability_index', 5.0);
                 setValue('land_use_coefficient', 0.6);
                 setValue('min_lot_size', 350);
@@ -362,8 +433,18 @@ export const ValuationForm: React.FC<Props> = ({ onSubmit, isLoading }) => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
-          <div className="space-y-1">
+      {/* Sección 0: Antecedentes Generales */}
+      <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm mb-8">
+        <div className="mb-6">
+          <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest flex items-center gap-2">
+            <FileText className="w-4 h-4 text-blue-600" />
+            Antecedentes
+          </h3>
+          <p className="text-[10px] text-gray-500 font-medium ml-6">Información básica de la propiedad y del cliente.</p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+          <div className="space-y-1 md:col-span-2 lg:col-span-2">
             <label className="text-sm font-medium text-gray-600">Nombre del Cliente / Propietario</label>
             <input 
               {...register('client_name')}
@@ -393,85 +474,127 @@ export const ValuationForm: React.FC<Props> = ({ onSubmit, isLoading }) => {
             </div>
           )}
 
-        <div className="space-y-1">
-          <label className="text-sm font-medium text-gray-600">Rol SII (Manzana)</label>
-          <input 
-            type="text" 
-            placeholder="Ej: 1234"
-            {...register("rol_manzana")}
-            className="w-full p-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
-
-        <div className="space-y-1">
-          <label className="text-sm font-medium text-gray-600">Rol SII (Predio)</label>
-          <input 
-            type="text" 
-            placeholder="Ej: 56"
-            {...register("rol_predio")}
-            className="w-full p-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
-
-        <div className="space-y-1">
-          <label className="text-sm font-medium text-gray-600">Avalúo Fiscal</label>
-          <div className="flex gap-2">
+          <div className="space-y-1">
+            <label className="text-sm font-medium text-gray-600">Rol SII (Manzana)</label>
             <input 
-              type="number" 
-              placeholder="Ej: 150000000"
-              {...register("avaluo_fiscal", { valueAsNumber: true })}
-              className="flex-1 p-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
+              type="text" 
+              placeholder="Ej: 1234"
+              {...register("rol_manzana")}
+              className="w-full p-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
             />
-            <button 
-              type="button"
-              onClick={() => window.open('https://www.sii.cl/servicios_online/1040-1041.html', '_blank')}
-              className="px-3 py-2 bg-slate-100 border border-gray-200 rounded-lg text-xs font-bold hover:bg-slate-200 transition-colors"
-            >
-              Consultar SII
-            </button>
           </div>
-        </div>
 
-        <div className="space-y-1">
-          <label className="text-sm font-medium text-gray-600">Dirección (Calle / Avenida)</label>
-          <input 
-            type="text" 
-            placeholder="Ej: Av. O'Higgins"
-            {...register("address_street")}
-            className="w-full p-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
+          <div className="space-y-1">
+            <label className="text-sm font-medium text-gray-600">Rol SII (Predio)</label>
+            <input 
+              type="text" 
+              placeholder="Ej: 56"
+              {...register("rol_predio")}
+              className="w-full p-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
 
-        <div className="space-y-1">
-          <label className="text-sm font-medium text-gray-600">Número</label>
-          <input 
-            type="text" 
-            placeholder="Ej: 123"
-            {...register("address_number")}
-            className="w-full p-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
+          <div className="space-y-1 md:col-span-2">
+            <label className="text-sm font-medium text-gray-600">Avalúo Fiscal</label>
+            <div className="flex gap-2">
+              <input 
+                type="number" 
+                placeholder="Ej: 150000000"
+                {...register("avaluo_fiscal", { valueAsNumber: true })}
+                className="flex-1 p-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <button 
+                type="button"
+                onClick={() => window.open('https://www.sii.cl/servicios_online/1040-1041.html', '_blank')}
+                className="px-3 py-2 bg-slate-100 border border-gray-200 rounded-lg text-xs font-bold hover:bg-slate-200 transition-colors"
+              >
+                Consultar SII
+              </button>
+            </div>
+          </div>
 
-        <div className="space-y-1">
-          <label className="text-sm font-medium text-gray-600">Sector / Barrio</label>
-          <input 
-            type="text" 
-            placeholder="Ej: Andalué, El Golf"
-            {...register("sector")}
-            className="w-full p-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
+          <div className="space-y-1 md:col-span-3">
+            <label className="text-sm font-medium text-gray-600">Dirección (Calle / Avenida)</label>
+            <div className="flex gap-2">
+              <input 
+                type="text" 
+                placeholder="Ej: Av. O'Higgins"
+                {...register("address_street")}
+                className="flex-1 p-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <select 
+                {...register("street_classification")}
+                className="w-32 p-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-xs"
+              >
+                <option value="">Clasif.</option>
+                {streetClassifications.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+          </div>
 
-        <div className="space-y-1">
-          <label className="text-sm font-medium text-gray-600">Comuna <span className="text-red-500">*</span></label>
-          <select 
-            {...register("commune")}
-            className="w-full p-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-          >
-            <option value="">Seleccionar comuna</option>
-            {communes.map(c => <option key={c} value={c}>{c}</option>)}
-          </select>
-          {errors.commune && <p className="text-xs text-red-500">{errors.commune.message}</p>}
+          <div className="space-y-1">
+            <label className="text-sm font-medium text-gray-600">Número</label>
+            <input 
+              type="text" 
+              placeholder="Ej: 123"
+              {...register("address_number")}
+              className="w-full p-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          <div className="space-y-1 md:col-span-full">
+            <label className="text-sm font-bold text-orange-800">Esquina</label>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 h-auto sm:h-10">
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input 
+                  type="checkbox" 
+                  {...register("is_corner")}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-orange-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-600"></div>
+                <span className="ml-3 text-sm font-medium text-gray-600">¿Es esquina?</span>
+              </label>
+              {watch("is_corner") && (
+                <div className="flex-1 flex gap-2 min-w-[250px]">
+                  <input 
+                    type="text"
+                    placeholder="Nombre calle esquina"
+                    {...register("corner_street")}
+                    className="flex-1 p-2 border border-orange-200 rounded-lg outline-none focus:ring-2 focus:ring-orange-500 text-sm bg-white"
+                  />
+                  <select 
+                    {...register("corner_street_classification")}
+                    className="w-32 p-2 border border-orange-200 rounded-lg outline-none focus:ring-2 focus:ring-orange-500 text-xs bg-white"
+                  >
+                    <option value="">Clasif.</option>
+                    {streetClassifications.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="space-y-1 md:col-span-3">
+            <label className="text-sm font-medium text-gray-600">Sector / Barrio</label>
+            <input 
+              type="text" 
+              placeholder="Ej: Andalué, El Golf"
+              {...register("sector")}
+              className="w-full p-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-sm font-medium text-gray-600">Comuna <span className="text-red-500">*</span></label>
+            <select 
+              {...register("commune")}
+              className="w-full p-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+            >
+              <option value="">Seleccionar comuna</option>
+              {communes.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+            {errors.commune && <p className="text-xs text-red-500">{errors.commune.message}</p>}
+          </div>
         </div>
       </div>
 
@@ -544,6 +667,41 @@ export const ValuationForm: React.FC<Props> = ({ onSubmit, isLoading }) => {
             />
           </div>
 
+          <div className="space-y-1">
+            <label className="text-sm font-medium text-slate-600">M2 Terreno <span className="text-red-500">*</span></label>
+            <input 
+              type="number" 
+              {...register("m2_total", { valueAsNumber: true })}
+              className={`w-full p-2 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white ${errors.m2_total ? 'border-red-500' : 'border-gray-200'}`}
+            />
+          </div>
+
+          <AnimatePresence>
+            {watch("surface_verification_notes") && (
+              <motion.div 
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="col-span-full p-3 bg-blue-50 border border-blue-100 rounded-xl flex items-start gap-3 shadow-sm"
+              >
+                <div className="bg-blue-100 p-2 rounded-lg shrink-0">
+                  <Info className="w-4 h-4 text-blue-600" />
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs font-bold text-blue-800 uppercase tracking-wider">Verificación de Superficie</p>
+                  <p className="text-sm text-blue-700 leading-relaxed">
+                    {watch("surface_verification_notes")}
+                  </p>
+                  {watch("verified_land_surface") !== undefined && watch("verified_land_surface") !== watch("m2_total") && (
+                    <div className="mt-2 flex items-center gap-2 bg-white/50 p-2 rounded-lg border border-blue-100 w-fit">
+                      <span className="text-[10px] font-bold text-blue-500 uppercase">Superficie oficial detectada:</span>
+                      <span className="text-sm font-black text-orange-600">{watch("verified_land_surface")} m2</span>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           <div className="space-y-1 relative">
             <label className="text-sm font-medium text-gray-600">Destino</label>
             <input 
@@ -589,12 +747,45 @@ export const ValuationForm: React.FC<Props> = ({ onSubmit, isLoading }) => {
           </div>
 
           <div className="space-y-1">
+            <label className="text-sm font-medium text-gray-600 flex items-center justify-between">
+              <span className="flex items-center gap-1">
+                Referencia GIS
+                <MapPin className="w-3 h-3 text-blue-400" />
+              </span>
+              <button 
+                type="button"
+                onClick={() => setIsPRCModalOpen(true)}
+                className="text-[10px] font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1 uppercase"
+              >
+                <ExternalLink className="w-3 h-3" />
+                Ver en Mapa PRC
+              </button>
+            </label>
+            <input 
+              type="text" 
+              placeholder="Ej: 11791"
+              {...register("gis_reference_id")}
+              className="w-full p-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+            />
+          </div>
+
+          <div className="space-y-1">
             <label className="text-sm font-medium text-gray-600">Altura Máx</label>
             <input 
               type="number" 
               step="0.1"
               placeholder="Ej: 15"
               {...register("max_height", { valueAsNumber: true })}
+              className="w-full p-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-sm font-medium text-gray-600">Estacionamientos</label>
+            <input 
+              type="text" 
+              placeholder="Ej: 1 cada 50m2"
+              {...register("parking_quota")}
               className="w-full p-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm"
             />
           </div>
@@ -621,64 +812,62 @@ export const ValuationForm: React.FC<Props> = ({ onSubmit, isLoading }) => {
             />
           </div>
 
-          {propertyType !== 'Sitio Eriazo' && (
-            <div key="m2-useful-field" className="space-y-1">
-              <label className="text-sm font-medium text-gray-600">
-                {propertyType === 'Departamento' ? 'M2 Útiles' : 'M2 Const.'}
-              </label>
-              <input 
-                type="number" 
-                {...register("m2_useful", { valueAsNumber: true })}
-                className={`w-full p-2 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm ${errors.m2_useful ? 'border-red-500' : 'border-gray-200'}`}
-              />
-              {errors.m2_useful && <p className="text-[10px] text-red-500">{errors.m2_useful.message}</p>}
+          {/* Grupo de Superficies */}
+          <div className="md:col-span-3 bg-slate-50/50 p-3 rounded-xl border border-slate-100">
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+              <Calculator className="w-3 h-3" /> Superficies m2
+            </p>
+            <div className={`grid gap-4 ${propertyType !== 'Sitio Eriazo' ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1'}`}>
+              {propertyType !== 'Sitio Eriazo' && (
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-slate-600">M2 Construido</label>
+                  <input 
+                    type="number" 
+                    {...register("m2_useful", { valueAsNumber: true })}
+                    className={`w-full p-2 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white ${errors.m2_useful ? 'border-red-500' : 'border-gray-200'}`}
+                  />
+                  {errors.m2_useful && <p className="text-[10px] text-red-500">{errors.m2_useful.message}</p>}
+                </div>
+              )}
             </div>
-          )}
-
-        <div className="space-y-1">
-          <label className="text-sm font-medium text-gray-600">
-            {propertyType === 'Departamento' ? 'M2 Totales' : 'M2 Terreno'} <span className="text-red-500">*</span>
-          </label>
-          <input 
-            type="number" 
-            {...register("m2_total", { valueAsNumber: true })}
-            className={`w-full p-2 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm ${errors.m2_total ? 'border-red-500' : 'border-gray-200'}`}
-          />
-          {errors.m2_total && <p className="text-[10px] text-red-500">{errors.m2_total.message}</p>}
-        </div>
+          </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 md:gap-6 mt-4 pt-4 border-t border-gray-50">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 mt-4 pt-4 border-t border-gray-50">
         <div className="space-y-1">
-          <label className="text-sm font-bold text-orange-800">Esquina</label>
-          <div className="flex items-center h-10">
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input 
-                type="checkbox" 
-                {...register("is_corner")}
-                className="sr-only peer"
-              />
-              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-orange-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-600"></div>
-              <span className="ml-3 text-sm font-medium text-gray-600">¿Es esquina?</span>
-            </label>
-          </div>
-        </div>
-        <div className="md:col-span-2 space-y-1">
           <label className="text-sm font-bold text-blue-800">Altura máxima según superficie</label>
-          <input 
-            type="text" 
+          <textarea 
             placeholder="Ej: 5 pisos (Ajustado por superficie y ubicación)"
             {...register("height_by_surface")}
-            className="w-full p-2 border border-blue-100 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-blue-50/30"
+            rows={1}
+            onInput={(e) => {
+              const target = e.target as HTMLTextAreaElement;
+              target.style.height = 'auto';
+              target.style.height = target.scrollHeight + 'px';
+            }}
+            className="w-full p-2 border border-blue-100 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-blue-50/30 resize-none overflow-hidden min-h-[38px]"
           />
+          <div className="mt-1">
+            <input 
+              type="text"
+              placeholder="Detalles edificación continua (ej: 9m de altura)"
+              {...register("continuous_building_details")}
+              className="w-full p-1.5 border border-blue-100 rounded-md outline-none focus:ring-1 focus:ring-blue-400 text-[10px] bg-white/50"
+            />
+          </div>
         </div>
         <div className="space-y-1">
           <label className="text-sm font-bold text-green-800">Superficie permitida</label>
-          <input 
-            type="text" 
+          <textarea 
             placeholder="Ej: 1.500 m2"
             {...register("allowed_buildable_surface")}
-            className="w-full p-2 border border-green-100 rounded-lg outline-none focus:ring-2 focus:ring-green-500 text-sm bg-green-50/30"
+            rows={1}
+            onInput={(e) => {
+              const target = e.target as HTMLTextAreaElement;
+              target.style.height = 'auto';
+              target.style.height = target.scrollHeight + 'px';
+            }}
+            className="w-full p-2 border border-green-100 rounded-lg outline-none focus:ring-2 focus:ring-green-500 text-sm bg-green-50/30 resize-none overflow-hidden min-h-[38px]"
           />
         </div>
       </div>
@@ -835,6 +1024,63 @@ export const ValuationForm: React.FC<Props> = ({ onSubmit, isLoading }) => {
             >
               {noiseOptions.map(o => <option key={o} value={o}>{o}</option>)}
             </select>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4">
+          <div className="space-y-1">
+            <label className="text-sm font-medium text-gray-600">Año Construcción</label>
+            <input 
+              type="number" 
+              {...register("year_built", { valueAsNumber: true })}
+              className="w-full p-2 border border-gray-200 rounded-lg outline-none text-sm"
+              placeholder="Ej: 2010"
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-sm font-medium text-gray-600">Niveles / Pisos</label>
+            <input 
+              type="number" 
+              {...register("floors", { valueAsNumber: true })}
+              className="w-full p-2 border border-gray-200 rounded-lg outline-none text-sm"
+              placeholder="Ej: 2"
+            />
+          </div>
+          <div className="space-y-1 md:col-span-full">
+            <label className="text-sm font-medium text-gray-600">Materiales Usados</label>
+            <input 
+              type="text" 
+              {...register("materiality_walls")}
+              className="w-full p-2 border border-gray-200 rounded-lg outline-none text-sm"
+              placeholder="Ej: Hormigón, Madera"
+            />
+          </div>
+          <div className="space-y-1 md:col-span-full">
+            <label className="text-sm font-medium text-gray-600">Cocina</label>
+            <input 
+              type="text" 
+              {...register("kitchen_description")}
+              className="w-full p-2 border border-gray-200 rounded-lg outline-none text-sm"
+              placeholder="Ej: Americana, Equipada"
+            />
+          </div>
+          <div className="space-y-1 md:col-span-full">
+            <label className="text-sm font-medium text-gray-600">Baño</label>
+            <input 
+              type="text" 
+              {...register("bathrooms_description")}
+              className="w-full p-2 border border-gray-200 rounded-lg outline-none text-sm"
+              placeholder="Ej: Porcelanato, Vanitorio"
+            />
+          </div>
+          <div className="space-y-1 md:col-span-full">
+            <label className="text-sm font-medium text-gray-600">RTV / Recepción</label>
+            <input 
+              type="text" 
+              {...register("rtv_status")}
+              className="w-full p-2 border border-gray-200 rounded-lg outline-none text-sm"
+              placeholder="Ej: Recepción Total"
+            />
           </div>
         </div>
 
@@ -1031,10 +1277,6 @@ export const ValuationForm: React.FC<Props> = ({ onSubmit, isLoading }) => {
                 <label className="text-xs font-medium text-gray-500">Estado de Expropiación</label>
                 <input type="text" {...register('expropriation_status')} className="w-full p-1.5 rounded-md border border-gray-200 text-sm" />
               </div>
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-gray-500">Cuotas Estacionamiento</label>
-                <input type="text" {...register('parking_quota')} className="w-full p-1.5 rounded-md border border-gray-200 text-sm" />
-              </div>
             </div>
 
             <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6 border-t border-blue-50 pt-6">
@@ -1221,6 +1463,21 @@ export const ValuationForm: React.FC<Props> = ({ onSubmit, isLoading }) => {
         </div>
       </div>
     </form>
+
+    <PRCViewerModal 
+      isOpen={isPRCModalOpen}
+      onClose={() => setIsPRCModalOpen(false)}
+      propertyData={{
+        address: watch("address_street"),
+        number: watch("address_number"),
+        commune: watch("commune"),
+        rol_manzana: watch("rol_manzana"),
+        rol_predio: watch("rol_predio"),
+        m2_total: watch("m2_total"),
+        gis_id: watch("gis_reference_id"),
+        zoning: watch("zoning_code")
+      }}
+    />
     </motion.div>
   );
 };
