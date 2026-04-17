@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, onAuthStateChanged } from 'firebase/auth';
-import { auth, db, loginWithGoogle, logout, handleFirestoreError, OperationType } from '../firebase.ts';
+import { auth, db, loginWithGoogle, logout, handleFirestoreError, OperationType } from '../firebase';
 import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 
 interface FirebaseContextType {

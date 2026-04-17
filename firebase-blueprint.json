@@ -19,46 +19,28 @@
       "type": "object",
       "properties": {
         "userId": { "type": "string", "description": "ID of the user who performed the valuation." },
-        "commune": { "type": "string", "description": "Commune where the property is located." },
-        "rol_sii": { "type": "string", "description": "SII Rol of the property." },
-        "avaluo_fiscal": { "type": "number", "description": "Fiscal appraisal value in CLP." },
-        "m2_useful": { "type": "number", "description": "Useful square meters." },
-        "m2_total": { "type": "number", "description": "Total square meters." },
-        "bedrooms": { "type": "number", "description": "Number of bedrooms." },
-        "bathrooms": { "type": "number", "description": "Number of bathrooms." },
-        "parking": { "type": "number", "description": "Number of parking spaces." },
-        "storage": { "type": "number", "description": "Number of storage units." },
-        "year_built": { "type": "number", "description": "Year the property was built." },
-        "estimated_price_uf": { "type": "number", "description": "Estimated price in UF." },
-        "estimated_price_clp": { "type": "number", "description": "Estimated price in CLP." },
-        "confidence_score": { "type": "number", "description": "Confidence score of the valuation (0-1)." },
-        "market_context": { "type": "string", "description": "AI-generated market context." },
-        "cabida_informe": {
-          "type": "object",
-          "properties": {
-            "max_floors": { "type": "number" },
-            "max_m2_buildable": { "type": "number" },
-            "observations": { "type": "string" }
-          }
-        },
-        "restricciones_analisis": {
-          "type": "object",
-          "properties": {
-            "risk_zones": { "type": "string" },
-            "expropriations": { "type": "string" },
-            "heritage_protection": { "type": "string" },
-            "observations": { "type": "string" }
-          }
-        },
-        "plusvalia_calculo": {
-          "type": "object",
-          "properties": {
-            "estimated_annual_appreciation": { "type": "number" },
-            "future_factors": { "type": "string" },
-            "market_projection": { "type": "string" }
-          }
-        },
-        "createdAt": { "type": "string", "format": "date-time", "description": "When the valuation was performed." }
+        "client_name": { "type": "string" },
+        "property_type": { "type": "string" },
+        "commune": { "type": "string" },
+        "sector": { "type": "string" },
+        "address_street": { "type": "string" },
+        "address_number": { "type": "string" },
+        "rol_sii": { "type": "string" },
+        "avaluo_fiscal": { "type": "number" },
+        "m2_useful": { "type": "number" },
+        "m2_total": { "type": "number" },
+        "bedrooms": { "type": "number" },
+        "bathrooms": { "type": "number" },
+        "parking": { "type": "number" },
+        "storage": { "type": "number" },
+        "year_built": { "type": "number" },
+        "gis_reference_id": { "type": "string" },
+        "is_corner": { "type": "boolean" },
+        "estimated_price_uf": { "type": "number" },
+        "estimated_price_clp": { "type": "number" },
+        "confidence_score": { "type": "number" },
+        "market_context": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["userId", "commune", "estimated_price_uf", "createdAt"]
     },

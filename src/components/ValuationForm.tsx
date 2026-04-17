@@ -4,9 +4,9 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { PropertyData } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
-import { Info, Sparkles, Loader2, X, Calculator, MapPin, ExternalLink } from 'lucide-react';
+import { Info, Sparkles, Loader2, X, Calculator, MapPin, ExternalLink, FileText, Building2 } from 'lucide-react';
 import { PRCViewerModal } from './PRCViewerModal';
-import { getRegulatoryData } from '../services/geminiService.ts';
+import { getRegulatoryData } from '../services/geminiService';
 
 const optionalNumber = z.preprocess((val) => {
   if (val === "" || val === null || val === undefined) return undefined;
@@ -20,6 +20,9 @@ const requiredNumber = (msg: string) => z.preprocess((val) => {
   return isNaN(num) ? undefined : num;
 }, z.number().min(1, msg));
 
+const optionalEnum = <T extends string>(values: [T, ...T[]]) => 
+  z.preprocess((val) => (val === "" ? undefined : val), z.enum(values).optional());
+
 const schema = z.object({
   valuation_type: z.enum(['basic', 'professional']),
   property_type: z.enum(['Departamento', 'Casa', 'Sitio Eriazo', 'Oficina', 'Local Comercial', 'Agrícola / Parcela', 'Teatro']),
@@ -32,37 +35,41 @@ const schema = z.object({
   commune: z.string().min(1, "La comuna es requerida"),
   sector: z.string().optional(),
   zoning_code: z.string().optional(),
-  property_usage: z.enum(['Habitacional', 'Comercial', 'Agrícola', 'Esparcimiento o Cultura']).optional(),
+  property_usage: optionalEnum(['Habitacional', 'Comercial', 'Agrícola', 'Esparcimiento o Cultura']),
   m2_useful: optionalNumber,
   m2_total: requiredNumber("M2 totales requeridos"),
   bedrooms: optionalNumber,
   bathrooms: optionalNumber,
   parking: optionalNumber,
   storage: optionalNumber,
-  year_built: z.preprocess((val) => (val === "" || val === null || val === undefined ? undefined : Number(val)), z.number().min(1900).max(2026).optional()),
+  year_built: z.preprocess((val) => {
+    if (val === "" || val === null || val === undefined) return undefined;
+    const num = Number(val);
+    return isNaN(num) ? undefined : num;
+  }, z.number().min(1900).max(2026).optional()),
   orientation: z.string().optional(),
   gastos_comunes: optionalNumber,
   floors: optionalNumber,
   project_status: z.string().optional(),
   amenities: z.array(z.string()).optional(),
   sustainability_features: z.array(z.string()).optional(),
-  topography: z.enum(['Plano', 'Pendiente Suave', 'Pendiente Fuerte']).optional(),
+  topography: optionalEnum(['Plano', 'Pendiente Suave', 'Pendiente Fuerte']),
   frontage_m: optionalNumber,
   max_height: optionalNumber,
   constructability_index: optionalNumber,
   land_use_coefficient: optionalNumber,
   // New Factors
-  conservation_state: z.enum(['Excelente', 'Bueno', 'Regular', 'Malo']).optional(),
-  construction_quality: z.enum(['Superior', 'Media', 'Económica']).optional(),
+  conservation_state: optionalEnum(['Excelente', 'Bueno', 'Regular', 'Malo']),
+  construction_quality: optionalEnum(['Superior', 'Media', 'Económica']),
   proximity_to_metro: z.boolean().optional(),
   proximity_to_services: z.array(z.string()).optional(),
-  view_quality: z.enum(['Despejada', 'Parcial', 'Obstruida']).optional(),
-  security_level: z.enum(['Alta', 'Media', 'Baja']).optional(),
-  noise_level: z.enum(['Silencioso', 'Moderado', 'Ruidoso']).optional(),
+  view_quality: optionalEnum(['Despejada', 'Parcial', 'Obstruida']),
+  security_level: optionalEnum(['Alta', 'Media', 'Baja']),
+  noise_level: optionalEnum(['Silencioso', 'Moderado', 'Ruidoso']),
   // Rural/Agricultural specific fields
   num_lots: optionalNumber,
-  water_availability: z.enum(['Abundante', 'Suficiente', 'Escasa']).optional(),
-  electricity_system: z.enum(['Público', 'Privado', 'Generador']).optional(),
+  water_availability: optionalEnum(['Abundante', 'Suficiente', 'Escasa']),
+  electricity_system: optionalEnum(['Público', 'Privado', 'Generador']),
   materiality_walls: z.string().optional(),
   materiality_roof: z.string().optional(),
   heating_system: z.string().optional(),
@@ -71,12 +78,24 @@ const schema = z.object({
   advantages: z.string().optional(),
   disadvantages: z.string().optional(),
   client_name: z.string().optional(),
+  client_email: z.string().email("Email inválido").optional().or(z.literal('')),
+  client_phone: z.string().optional(),
   sector_description: z.string().optional(),
   min_lot_size: optionalNumber,
+  upper_floor_occupancy_coefficient: optionalNumber,
+  max_height_continuous: optionalNumber,
+  max_depth_continuous: optionalNumber,
+  max_height_isolated_over_continuous: optionalNumber,
   min_frontage: optionalNumber,
   density: z.string().optional(),
   setback: z.string().optional(),
-  grouping: z.enum(['Continuo', 'Aislado', 'Pareado']).optional(),
+  retranqueo: z.string().optional(),
+  adosamiento: z.string().optional(),
+  distanciamiento: z.string().optional(),
+  antejardin: z.string().optional(),
+  incentivos: z.string().optional(),
+  condicion_incentivo: z.string().optional(),
+  grouping: optionalEnum(['Continuo', 'Aislado', 'Pareado']),
   cip_status: z.string().optional(),
   expropriation_status: z.string().optional(),
   parking_quota: z.string().optional(),
@@ -164,7 +183,13 @@ export const ValuationForm: React.FC<Props> = ({ onSubmit, isLoading }) => {
       construction_quality: 'Media',
       view_quality: 'Parcial',
       security_level: 'Media',
-      noise_level: 'Moderado'
+      noise_level: 'Moderado',
+      client_email: '',
+      client_phone: '',
+      upper_floor_occupancy_coefficient: 0,
+      max_height_continuous: 0,
+      max_depth_continuous: 0,
+      max_height_isolated_over_continuous: 0
     }
   });
 
@@ -239,6 +264,12 @@ export const ValuationForm: React.FC<Props> = ({ onSubmit, isLoading }) => {
       setValue("allowed_buildable_surface", data.allowed_buildable_surface);
       setValue("verified_land_surface", data.verified_land_surface);
       setValue("surface_verification_notes", data.surface_verification_notes);
+      setValue("min_lot_size", data.min_lot_size);
+      setValue("upper_floor_occupancy_coefficient", data.upper_floor_occupancy_coefficient);
+      setValue("max_height_continuous", data.max_height_continuous);
+      setValue("max_depth_continuous", data.max_depth_continuous);
+      setValue("max_height_isolated_over_continuous", data.max_height_isolated_over_continuous);
+      if (data.grouping) setValue("grouping", data.grouping as any);
       if (data.street_classification) setValue("street_classification", data.street_classification);
       if (data.corner_street_classification) setValue("corner_street_classification", data.corner_street_classification);
       setUsageSearch(data.property_usage);
@@ -325,93 +356,134 @@ export const ValuationForm: React.FC<Props> = ({ onSubmit, isLoading }) => {
         <div className="bg-white p-6 rounded-2xl border-2 border-blue-100 shadow-sm mb-8">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4 mb-4">
             <label className="text-lg font-bold text-slate-800 uppercase tracking-widest">Tipo de Tasación</label>
-            <button
-              type="button"
-              onClick={() => {
-                setValue('valuation_type', 'professional');
-                setValue('client_name', 'SOCIEDAD DE INVERSIONES CHILE SPA');
-                setValue('property_type', 'Local Comercial');
-                setValue('commune', 'Concepción');
-                setValue('address_street', 'Aníbal Pinto');
-                setValue('address_number', '343');
-                setValue('gis_reference_id', '11791');
-                setValue('height_by_surface', '15 metros (Aprox. 5 pisos)');
-                setValue('continuous_building_details', '9m de altura máxima para edificación continua');
-                setValue('allowed_buildable_surface', '1.250 m² totales');
-                setValue('parking_quota', '1 cada 50 m2');
-                setValue('year_built', 2015);
-                setValue('floors', 1);
-                setValue('materiality_walls', 'Albañilería Reforzada');
-                setValue('kitchen_description', 'Kitchenette integrada');
-                setValue('bathrooms_description', 'Baño universal accesible');
-                setValue('rtv_status', 'Recepción Parcial');
-                setValue('street_classification', 'Troncal');
-                setValue('is_corner', true);
-                setValue('corner_street', 'San Martín');
-                setValue('corner_street_classification', 'Servicio');
-                setValue('sector', 'Centro / Plaza de Armas (Local 29)');
-                setValue('rol_manzana', '136');
-                setValue('rol_predio', '126');
-                setValue('rol_sii', '136-126');
-                setValue('avaluo_fiscal', 676887653);
-                setValue('m2_total', 959);
-                setValue('m2_useful', 385.6);
-                setValue('property_usage', 'Comercial');
-                setValue('conservation_state', 'Regular');
-                setValue('construction_quality', 'Media');
-                setValue('security_level', 'Alta');
-                setValue('noise_level', 'Moderado');
-                setValue('year_built', 1961);
-                setValue('floors', 2);
-                setValue('materiality_walls', 'Hormigón Armado y Albañilería');
-                setValue('kitchen_description', 'Cocina equipada, muebles de madera');
-                setValue('bathrooms_description', 'Porcelanato, grifería de alta calidad');
-                setValue('rtv_status', 'Recepción Total');
-                setValue('view_quality', 'Despejada');
-                setValue('zoning_code', 'CPH (Centro y Plazas Históricas)');
-                setValue('height_by_surface', '27 metros (Aprox. 9 pisos)');
-                setValue('continuous_building_details', '15m de altura máxima para edificación continua (Art. 40)');
-                setValue('allowed_buildable_surface', '4.795 m² totales');
-                setValue('max_height', 11);
-                setValue('parking_quota', '1 cada 40 m2 útiles');
-                setValue('constructability_index', 5.0);
-                setValue('land_use_coefficient', 0.6);
-                setValue('min_lot_size', 350);
-                setValue('min_frontage', 15);
-                setValue('density', "Libre / No aplica");
-                setValue('setback', "No aplica");
-                setValue('grouping', "Continuo");
-                setValue('cip_status', "Sin antecedentes (Solicitar CIP)");
-                setValue('expropriation_status', "No se aportó información (Solicitar respaldo)");
-                setValue('access_description', "Se produce en ángulo recto a través de los dos accesos de la galería: calles Aníbal Pinto y San Martín, principales vías del centro.");
-                setValue('distribution_description', "1° Nivel: Plantas libres, hall de acceso, baños público, sala principal con escenario. 2° Nivel: Bodega, 2 oficinas, baño y sala de proyección.");
-                setValue('structure_muros', "Hormigón Armado y Albañilería Reforzada");
-                setValue('structure_entrepiso', "Hormigón Armado");
-                setValue('structure_escalera', "Hormigón Armado");
-                setValue('structure_techumbre', "Planchas de acero zincado");
-                setValue('structure_cubierta', "Acero Zincado");
-                setValue('finishes_walls', "Pintura sobre estuco y enlucido");
-                setValue('finishes_floors', "Porcelanato y Cerámicos");
-                setValue('finishes_ceilings', "Enlucido");
-                setValue('sanitary_artifacts', "Enlozados de color blanco");
-                setValue('land_shape', "Irregular");
-                setValue('land_topography', "Plana");
-                setValue('front_depth_ratio', "1:4");
-                setValue('permit_number', "20/01/1962");
-                setValue('permit_date', "1962-01-20");
-                setValue('reception_number', "170");
-                setValue('reception_date', "1962-10-25");
-                setValue('year_built', 1961);
-                setValue('proximity_to_services', ["Metro", "Transporte Público", "Colegios", "Comercio", "Seguridad"]);
-                setValue('sector_description', "Barrio centro en torno al Centro Metropolitano. Tipología CPH. Sector de densidad alta, consolidado y equipado a excelente nivel, destinado a nivel socioeconómico medio-alto y con predominio comercial y/o de servicios. Urbanización completa de alta calidad (hormigón).");
-                setValue('notes', "Se considera a la propiedad como subutilizada, pudiendo aprovechar su amplia superficie a tan poca distancia de la Plaza de Armas para generar un destino comercial más potente y renovado. Sustentación: Método de comparación de mercado con descuento por negociación. Usos Permitidos: Residencial, Equipamiento (Comercio, Culto, Cultura, Deporte, Educación, Esparcimiento, Salud, Seguridad, Servicios y Social).");
-                setValue('advantages', "Buen emplazamiento, centro comercial y financiero. Versatilidad de usos. Alta demanda y rotación de arriendos. Entorno privilegiado. Doble acceso (San Martín y Aníbal Pinto).");
-                setValue('disadvantages', "Mal estado general de mantención. Alta inversión requerida para renovación por la magnitud del bien.");
-              }}
-              className="text-xs bg-blue-50 text-blue-600 px-3 py-1.5 rounded-full font-bold hover:bg-blue-100 transition-colors border border-blue-200"
-            >
-              Cargar Ejemplo Real (Concepción)
-            </button>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setValue('valuation_type', 'professional');
+                  setValue('client_name', 'SOCIEDAD DE INVERSIONES CHILE SPA');
+                  setValue('property_type', 'Local Comercial');
+                  setValue('commune', 'Concepción');
+                  setValue('address_street', 'Aníbal Pinto');
+                  setValue('address_number', '343');
+                  setValue('gis_reference_id', '11791');
+                  setValue('height_by_surface', '15 metros (Aprox. 5 pisos)');
+                  setValue('continuous_building_details', '9m de altura máxima para edificación continua');
+                  setValue('allowed_buildable_surface', '1.250 m² totales');
+                  setValue('parking_quota', '1 cada 50 m2');
+                  setValue('year_built', 2015);
+                  setValue('floors', 1);
+                  setValue('materiality_walls', 'Albañilería Reforzada');
+                  setValue('kitchen_description', 'Kitchenette integrada');
+                  setValue('bathrooms_description', 'Baño universal accesible');
+                  setValue('rtv_status', 'Recepción Parcial');
+                  setValue('street_classification', 'Troncal');
+                  setValue('is_corner', true);
+                  setValue('corner_street', 'San Martín');
+                  setValue('corner_street_classification', 'Servicio');
+                  setValue('sector', 'Centro / Plaza de Armas (Local 29)');
+                  setValue('rol_manzana', '136');
+                  setValue('rol_predio', '126');
+                  setValue('rol_sii', '136-126');
+                  setValue('avaluo_fiscal', 676887653);
+                  setValue('m2_total', 959);
+                  setValue('m2_useful', 385.6);
+                  setValue('property_usage', 'Comercial');
+                  setValue('conservation_state', 'Regular');
+                  setValue('construction_quality', 'Media');
+                  setValue('security_level', 'Alta');
+                  setValue('noise_level', 'Moderado');
+                  setValue('year_built', 1961);
+                  setValue('floors', 2);
+                  setValue('materiality_walls', 'Hormigón Armado y Albañilería');
+                  setValue('kitchen_description', 'Cocina equipada, muebles de madera');
+                  setValue('bathrooms_description', 'Porcelanato, grifería de alta calidad');
+                  setValue('rtv_status', 'Recepción Total');
+                  setValue('view_quality', 'Despejada');
+                  setValue('zoning_code', 'CPH (Centro y Plazas Históricas)');
+                  setValue('height_by_surface', '27 metros (Aprox. 9 pisos)');
+                  setValue('continuous_building_details', '15m de altura máxima para edificación continua (Art. 40)');
+                  setValue('allowed_buildable_surface', '4.795 m² totales');
+                  setValue('max_height', 11);
+                  setValue('parking_quota', '1 cada 40 m2 útiles');
+                  setValue('constructability_index', 5.0);
+                  setValue('land_use_coefficient', 0.6);
+                  setValue('min_lot_size', 400);
+                  setValue('min_frontage', 15);
+                  setValue('density', "Libre");
+                  setValue('setback', "No aplica");
+                  setValue('antejardin', "5m (Prod/Infra) / 4m (Otros)");
+                  setValue('retranqueo', "No aplica");
+                  setValue('adosamiento', "Permitido (excepto Prod/Infra)");
+                  setValue('distanciamiento', "Según Art. 2.6.3 OGUC");
+                  setValue('incentivos', "Art. 40: Altura cont. 15m / Prof. 80%");
+                  setValue('condicion_incentivo', "Capa vegetal en cubierta o patio comunitario");
+                  setValue('grouping', "Continuo");
+                  setValue('cip_status', "Sin antecedentes (Solicitar CIP)");
+                  setValue('expropriation_status', "No se aportó información (Solicitar respaldo)");
+                  setValue('access_description', "Se produce en ángulo recto a través de los dos accesos de la galería: calles Aníbal Pinto y San Martín, principales vías del centro.");
+                  setValue('distribution_description', "1° Nivel: Plantas libres, hall de acceso, baños público, sala principal con escenario. 2° Nivel: Bodega, 2 oficinas, baño y sala de proyección.");
+                  setValue('structure_muros', "Hormigón Armado y Albañilería Reforzada");
+                  setValue('structure_entrepiso', "Hormigón Armado");
+                  setValue('structure_escalera', "Hormigón Armado");
+                  setValue('structure_techumbre', "Planchas de acero zincado");
+                  setValue('structure_cubierta', "Acero Zincado");
+                  setValue('finishes_walls', "Pintura sobre estuco y enlucido");
+                  setValue('finishes_floors', "Porcelanato y Cerámicos");
+                  setValue('finishes_ceilings', "Enlucido");
+                  setValue('sanitary_artifacts', "Enlozados de color blanco");
+                  setValue('land_shape', "Irregular");
+                  setValue('land_topography', "Plana");
+                  setValue('front_depth_ratio', "1:4");
+                  setValue('permit_number', "20/01/1962");
+                  setValue('permit_date', "1962-01-20");
+                  setValue('reception_number', "170");
+                  setValue('reception_date', "1962-10-25");
+                  setValue('year_built', 1961);
+                  setValue('proximity_to_services', ["Metro", "Transporte Público", "Colegios", "Comercio", "Seguridad"]);
+                  setValue('sector_description', "Barrio centro en torno al Centro Metropolitano. Tipología CPH. Sector de densidad alta, consolidado y equipado a excelente nivel, destinado a nivel socioeconómico medio-alto y con predominio comercial y/o de servicios. Urbanización completa de alta calidad (hormigón).");
+                  setValue('notes', "Se considera a la propiedad como subutilizada, pudiendo aprovechar su amplia superficie a tan poca distancia de la Plaza de Armas para generar un destino comercial más potente y renovado. Sustentación: Método de comparación de mercado con descuento por negociación. Usos Permitidos: Residencial, Equipamiento (Comercio, Culto, Cultura, Deporte, Educación, Esparcimiento, Salud, Seguridad, Servicios y Social).");
+                  setValue('advantages', "Buen emplazamiento, centro comercial y financiero. Versatilidad de usos. Alta demanda y rotación de arriendos. Entorno privilegiado. Doble acceso (San Martín y Aníbal Pinto).");
+                  setValue('disadvantages', "Mal estado general de mantención. Alta inversión requerida para renovación por la magnitud del bien.");
+                }}
+                className="text-[10px] bg-blue-50 text-blue-600 px-2 py-1 rounded-full font-bold hover:bg-blue-100 transition-colors border border-blue-200"
+              >
+                Ejemplo Concepción
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setValue('valuation_type', 'professional');
+                  setValue('client_name', 'INVERSIONES SAN PEDRO SPA');
+                  setValue('property_type', 'Casa');
+                  setValue('commune', 'San Pedro de la Paz');
+                  setValue('address_street', 'Av. Michimalonco');
+                  setValue('address_number', '1200');
+                  setValue('sector', 'Andalué');
+                  setValue('zoning_code', 'ZM-1');
+                  setValue('m2_total', 1200);
+                  setValue('m2_useful', 250);
+                  setValue('property_usage', 'Habitacional');
+                  setValue('year_built', 2018);
+                  setValue('floors', 2);
+                  setValue('max_height', 45);
+                  setValue('constructability_index', 2.5);
+                  setValue('land_use_coefficient', 1.0);
+                  setValue('min_lot_size', 1000);
+                  setValue('max_height_continuous', 10.5);
+                  setValue('grouping', 'Aislado');
+                  setValue('parking_quota', '1 por unidad de vivienda');
+                  setValue('conservation_state', 'Excelente');
+                  setValue('construction_quality', 'Superior');
+                  setValue('security_level', 'Alta');
+                  setValue('noise_level', 'Silencioso');
+                  setValue('sector_description', "Zona Mixta ZM-1 consolidada. Alta plusvalía y equipamiento completo.");
+                }}
+                className="text-[10px] bg-green-50 text-green-600 px-2 py-1 rounded-full font-bold hover:bg-green-100 transition-colors border border-green-200"
+              >
+                Ejemplo San Pedro (ZM-1)
+              </button>
+            </div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <label className={`relative flex flex-col p-4 cursor-pointer rounded-xl border-2 transition-all ${watch('valuation_type') === 'basic' ? 'border-blue-600 bg-blue-50 shadow-md' : 'border-gray-100 hover:border-blue-200'}`}>
@@ -444,11 +516,30 @@ export const ValuationForm: React.FC<Props> = ({ onSubmit, isLoading }) => {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-          <div className="space-y-1 md:col-span-2 lg:col-span-2">
+          <div className="space-y-1 md:col-span-2">
             <label className="text-sm font-medium text-gray-600">Nombre del Cliente / Propietario</label>
             <input 
               {...register('client_name')}
               placeholder="Ej: Sociedad de Inversiones Chile SpA"
+              className="w-full p-1.5 rounded-md border border-gray-200 focus:border-blue-600 focus:ring-0 transition-all text-sm"
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-sm font-medium text-gray-600">Email de Contacto</label>
+            <input 
+              type="email"
+              {...register('client_email')}
+              placeholder="ejemplo@correo.com"
+              className={`w-full p-1.5 rounded-md border focus:border-blue-600 focus:ring-0 transition-all text-sm ${errors.client_email ? 'border-red-500' : 'border-gray-200'}`}
+            />
+            {errors.client_email && <p className="text-[10px] text-red-500">{errors.client_email.message}</p>}
+          </div>
+          <div className="space-y-1">
+            <label className="text-sm font-medium text-gray-600">WhatsApp / Teléfono</label>
+            <input 
+              type="tel"
+              {...register('client_phone')}
+              placeholder="+56 9 1234 5678"
               className="w-full p-1.5 rounded-md border border-gray-200 focus:border-blue-600 focus:ring-0 transition-all text-sm"
             />
           </div>
@@ -789,31 +880,11 @@ export const ValuationForm: React.FC<Props> = ({ onSubmit, isLoading }) => {
               className="w-full p-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm"
             />
           </div>
+        </div>
 
-          <div className="space-y-1">
-            <label className="text-sm font-medium text-gray-600">Coef. Const.</label>
-            <input 
-              type="number" 
-              step="0.01"
-              placeholder="Ej: 2.5"
-              {...register("constructability_index", { valueAsNumber: true })}
-              className="w-full p-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-            />
-          </div>
-
-          <div className="space-y-1">
-            <label className="text-sm font-medium text-gray-600">Coef. Uso Suelo</label>
-            <input 
-              type="number" 
-              step="0.01"
-              placeholder="Ej: 0.6"
-              {...register("land_use_coefficient", { valueAsNumber: true })}
-              className="w-full p-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-            />
-          </div>
-
-          {/* Grupo de Superficies */}
-          <div className="md:col-span-3 bg-slate-50/50 p-3 rounded-xl border border-slate-100">
+        {/* Grupo de Superficies */}
+        <div className="mt-8 pt-6 border-t border-gray-100">
+          <div className="bg-slate-50/50 p-4 rounded-xl border border-slate-100">
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
               <Calculator className="w-3 h-3" /> Superficies m2
             </p>
@@ -831,47 +902,245 @@ export const ValuationForm: React.FC<Props> = ({ onSubmit, isLoading }) => {
               )}
             </div>
           </div>
-      </div>
+        </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 mt-4 pt-4 border-t border-gray-50">
-        <div className="space-y-1">
-          <label className="text-sm font-bold text-blue-800">Altura máxima según superficie</label>
-          <textarea 
-            placeholder="Ej: 5 pisos (Ajustado por superficie y ubicación)"
-            {...register("height_by_surface")}
-            rows={1}
-            onInput={(e) => {
-              const target = e.target as HTMLTextAreaElement;
-              target.style.height = 'auto';
-              target.style.height = target.scrollHeight + 'px';
-            }}
-            className="w-full p-2 border border-blue-100 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-blue-50/30 resize-none overflow-hidden min-h-[38px]"
-          />
-          <div className="mt-1">
-            <input 
-              type="text"
-              placeholder="Detalles edificación continua (ej: 9m de altura)"
-              {...register("continuous_building_details")}
-              className="w-full p-1.5 border border-blue-100 rounded-md outline-none focus:ring-1 focus:ring-blue-400 text-[10px] bg-white/50"
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 mt-4 pt-4 border-t border-gray-50">
+          <div className="space-y-1">
+            <label className="text-sm font-bold text-blue-800">Altura máxima según superficie</label>
+            <textarea 
+              placeholder="Ej: 5 pisos (Ajustado por superficie y ubicación)"
+              {...register("height_by_surface")}
+              rows={1}
+              onInput={(e) => {
+                const target = e.target as HTMLTextAreaElement;
+                target.style.height = 'auto';
+                target.style.height = target.scrollHeight + 'px';
+              }}
+              className="w-full p-2 border border-blue-100 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-blue-50/30 resize-none overflow-hidden min-h-[38px]"
+            />
+            <div className="mt-1">
+              <input 
+                type="text"
+                placeholder="Detalles edificación continua (ej: 9m de altura)"
+                {...register("continuous_building_details")}
+                className="w-full p-1.5 border border-blue-100 rounded-md outline-none focus:ring-1 focus:ring-blue-400 text-[10px] bg-white/50"
+              />
+            </div>
+          </div>
+          <div className="space-y-1">
+            <label className="text-sm font-bold text-green-800">Superficie permitida</label>
+            <textarea 
+              placeholder="Ej: 1.500 m2"
+              {...register("allowed_buildable_surface")}
+              rows={1}
+              onInput={(e) => {
+                const target = e.target as HTMLTextAreaElement;
+                target.style.height = 'auto';
+                target.style.height = target.scrollHeight + 'px';
+              }}
+              className="w-full p-2 border border-green-100 rounded-lg outline-none focus:ring-2 focus:ring-green-500 text-sm bg-green-50/30 resize-none overflow-hidden min-h-[38px]"
             />
           </div>
         </div>
-        <div className="space-y-1">
-          <label className="text-sm font-bold text-green-800">Superficie permitida</label>
-          <textarea 
-            placeholder="Ej: 1.500 m2"
-            {...register("allowed_buildable_surface")}
-            rows={1}
-            onInput={(e) => {
-              const target = e.target as HTMLTextAreaElement;
-              target.style.height = 'auto';
-              target.style.height = target.scrollHeight + 'px';
-            }}
-            className="w-full p-2 border border-green-100 rounded-lg outline-none focus:ring-2 focus:ring-green-500 text-sm bg-green-50/30 resize-none overflow-hidden min-h-[38px]"
-          />
+      </div>
+
+      {/* Contenedor 3: CONDICIONES DE EDIFICACION */}
+      <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm mb-8">
+        <div className="mb-6">
+          <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest flex items-center gap-2">
+            <Building2 className="w-4 h-4 text-blue-600" />
+            Condiciones de Edificación
+          </h3>
+          <p className="text-[10px] text-gray-500 font-medium ml-6">Parámetros específicos de la O.G.U.C. y el P.R.C. para el desarrollo del predio.</p>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6">
+          <div className="space-y-1">
+            <label className="text-xs font-bold text-gray-600 uppercase tracking-tight">Superficie Predial Mínima</label>
+            <div className="relative">
+              <input 
+                type="number" 
+                placeholder="Ej: 400"
+                {...register("min_lot_size", { valueAsNumber: true })}
+                className="w-full p-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm pr-8"
+              />
+              <span className="absolute right-2 top-2 text-[10px] font-bold text-gray-400">m²</span>
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-xs font-bold text-gray-600 uppercase tracking-tight">Coeficiente de Uso de Suelo</label>
+            <input 
+              type="number" 
+              step="0.01"
+              placeholder="Ej: 0.6"
+              {...register("land_use_coefficient", { valueAsNumber: true })}
+              className="w-full p-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-xs font-bold text-gray-600 uppercase tracking-tight">Coeficiente de Constructibilidad</label>
+            <input 
+              type="number" 
+              step="0.01"
+              placeholder="Ej: 4.0"
+              {...register("constructability_index", { valueAsNumber: true })}
+              className="w-full p-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-xs font-bold text-gray-600 uppercase tracking-tight">Coef. Ocupación Pisos Sup.</label>
+            <input 
+              type="number" 
+              step="0.01"
+              placeholder="Ej: 0.4"
+              {...register("upper_floor_occupancy_coefficient", { valueAsNumber: true })}
+              className="w-full p-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-xs font-bold text-gray-600 uppercase tracking-tight">Altura Máxima de Edificación</label>
+            <div className="relative">
+              <input 
+                type="number" 
+                step="0.1"
+                placeholder="Ej: 27"
+                {...register("max_height", { valueAsNumber: true })}
+                className="w-full p-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm pr-8"
+              />
+              <span className="absolute right-2 top-2 text-[10px] font-bold text-gray-400">m</span>
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-xs font-bold text-gray-600 uppercase tracking-tight">Sistema de Agrupamiento</label>
+            <select 
+              {...register("grouping")}
+              className="w-full p-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white"
+            >
+              <option value="">Seleccionar...</option>
+              <option value="Continuo">Continuo</option>
+              <option value="Aislado">Aislado</option>
+              <option value="Pareado">Pareado</option>
+            </select>
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-xs font-bold text-gray-600 uppercase tracking-tight">Alt. Máx. Edificación Continua</label>
+            <div className="relative">
+              <input 
+                type="number" 
+                step="0.1"
+                placeholder="Ej: 9"
+                {...register("max_height_continuous", { valueAsNumber: true })}
+                className="w-full p-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm pr-8"
+              />
+              <span className="absolute right-2 top-2 text-[10px] font-bold text-gray-400">m</span>
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-xs font-bold text-gray-600 uppercase tracking-tight">Prof. Máx. Edif. Continua</label>
+            <div className="relative">
+              <input 
+                type="number" 
+                step="0.1"
+                placeholder="Ej: 15"
+                {...register("max_depth_continuous", { valueAsNumber: true })}
+                className="w-full p-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm pr-8"
+              />
+              <span className="absolute right-2 top-2 text-[10px] font-bold text-gray-400">m</span>
+            </div>
+          </div>
+
+          <div className="space-y-1 md:col-span-2">
+            <label className="text-xs font-bold text-gray-600 uppercase tracking-tight">Alt. Máx. Edif. Aislado sobre Continuo</label>
+            <div className="relative">
+              <input 
+                type="number" 
+                step="0.1" 
+                placeholder="Ej: 18"
+                {...register("max_height_isolated_over_continuous", { valueAsNumber: true })}
+                className="w-full p-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm pr-8"
+              />
+              <span className="absolute right-2 top-2 text-[10px] font-bold text-gray-400">m</span>
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-xs font-bold text-gray-600 uppercase tracking-tight">Retranqueo</label>
+            <input 
+              type="text" 
+              placeholder="Ej: No aplica"
+              {...register("retranqueo")}
+              className="w-full p-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-xs font-bold text-gray-600 uppercase tracking-tight">Adosamiento</label>
+            <input 
+              type="text" 
+              placeholder="Ej: Permitido"
+              {...register("adosamiento")}
+              className="w-full p-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-xs font-bold text-gray-600 uppercase tracking-tight">Distanciamiento</label>
+            <input 
+              type="text" 
+              placeholder="Ej: Art. 2.6.3 OGUC"
+              {...register("distanciamiento")}
+              className="w-full p-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-xs font-bold text-gray-600 uppercase tracking-tight">Antejardín</label>
+            <input 
+              type="text" 
+              placeholder="Ej: 4m"
+              {...register("antejardin")}
+              className="w-full p-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+            />
+          </div>
+
+          <div className="space-y-1 md:col-span-2">
+            <label className="text-xs font-bold text-blue-700 uppercase tracking-tight">Incentivos (Art. 40)</label>
+            <textarea 
+              placeholder="Ej: Aumento altura continua a 15m..."
+              {...register("incentivos")}
+              rows={1}
+              onInput={(e) => {
+                const target = e.target as HTMLTextAreaElement;
+                target.style.height = 'auto';
+                target.style.height = target.scrollHeight + 'px';
+              }}
+              className="w-full p-2 border border-blue-100 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-blue-50/30 resize-none overflow-hidden min-h-[38px]"
+            />
+          </div>
+
+          <div className="space-y-1 md:col-span-3">
+            <label className="text-xs font-bold text-blue-700 uppercase tracking-tight">Condición para Incentivo</label>
+            <textarea 
+              placeholder="Ej: Capa vegetal en cubierta..."
+              {...register("condicion_incentivo")}
+              rows={1}
+              onInput={(e) => {
+                const target = e.target as HTMLTextAreaElement;
+                target.style.height = 'auto';
+                target.style.height = target.scrollHeight + 'px';
+              }}
+              className="w-full p-2 border border-blue-100 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-blue-50/30 resize-none overflow-hidden min-h-[38px]"
+            />
+          </div>
         </div>
       </div>
-    </div>
 
       {/* Contenedor 2: Edificación y Atributos */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4 md:gap-6 items-start">

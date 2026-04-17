@@ -50,9 +50,8 @@ service cloud.firestore {
 
     function isAdmin() {
       return isAuthenticated() &&
-        ((request.auth.token.email == "janiceleroy@gmail.com") ||
-         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'));
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+         (request.auth.token.email == "janiceleroy@gmail.com" && request.auth.token.email_verified == true));
     }
 
     function hasRequiredFields(fields) {
@@ -90,32 +89,24 @@ service cloud.firestore {
              data.commune is string && data.commune.size() < 100 &&
              data.estimated_price_uf is number && data.estimated_price_uf > 0 &&
              data.createdAt is timestamp &&
+             (!('client_name' in data) || (data.client_name is string && data.client_name.size() < 200)) &&
+             (!('property_type' in data) || (data.property_type is string)) &&
+             (!('address_street' in data) || (data.address_street is string && data.address_street.size() < 300)) &&
+             (!('address_number' in data) || (data.address_number is string && data.address_number.size() < 50)) &&
              (!('rol_sii' in data) || (data.rol_sii is string && data.rol_sii.size() < 50)) &&
              (!('avaluo_fiscal' in data) || (data.avaluo_fiscal is number && data.avaluo_fiscal >= 0)) &&
-             (!('max_height' in data) || (data.max_height is number && data.max_height >= 0)) &&
-             (!('constructability_index' in data) || (data.constructability_index is number && data.constructability_index >= 0)) &&
              (!('m2_useful' in data) || (data.m2_useful is number && data.m2_useful >= 0)) &&
              data.m2_total is number && data.m2_total > 0 &&
              (!('bedrooms' in data) || (data.bedrooms is number && data.bedrooms >= 0)) &&
              (!('bathrooms' in data) || (data.bathrooms is number && data.bathrooms >= 0)) &&
              (!('parking' in data) || (data.parking is number && data.parking >= 0)) &&
              (!('storage' in data) || (data.storage is number && data.storage >= 0)) &&
+             (!('year_built' in data) || (data.year_built is number)) &&
+             (!('gis_reference_id' in data) || (data.gis_reference_id is string)) &&
+             (!('is_corner' in data) || (data.is_corner is bool)) &&
              data.estimated_price_clp is number && data.estimated_price_clp > 0 &&
              data.confidence_score is number && data.confidence_score >= 0 && data.confidence_score <= 1 &&
-             data.market_context is string && data.market_context.size() < 5000 &&
-             (!('cabida_informe' in data) || (data.cabida_informe is map && 
-                                             data.cabida_informe.max_floors is number && 
-                                             data.cabida_informe.max_m2_buildable is number && 
-                                             data.cabida_informe.observations is string)) &&
-             (!('restricciones_analisis' in data) || (data.restricciones_analisis is map && 
-                                                     data.restricciones_analisis.risk_zones is string && 
-                                                     data.restricciones_analisis.expropriations is string && 
-                                                     data.restricciones_analisis.heritage_protection is string && 
-                                                     data.restricciones_analisis.observations is string)) &&
-             (!('plusvalia_calculo' in data) || (data.plusvalia_calculo is map && 
-                                                data.plusvalia_calculo.estimated_annual_appreciation is number && 
-                                                data.plusvalia_calculo.future_factors is string && 
-                                                data.plusvalia_calculo.market_projection is string));
+             data.market_context is string && data.market_context.size() < 10000;
     }
 
     function isValidProject(data) {

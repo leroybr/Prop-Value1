@@ -71,11 +71,23 @@ export interface PropertyData {
   advantages?: string;
   disadvantages?: string;
   client_name?: string;
+  client_email?: string;
+  client_phone?: string;
   sector_description?: string;
   min_lot_size?: number;
+  upper_floor_occupancy_coefficient?: number;
+  max_height_continuous?: number;
+  max_depth_continuous?: number;
+  max_height_isolated_over_continuous?: number;
   min_frontage?: number;
   density?: string;
   setback?: string;
+  retranqueo?: string;
+  adosamiento?: string;
+  distanciamiento?: string;
+  antejardin?: string;
+  incentivos?: string;
+  condicion_incentivo?: string;
   grouping?: 'Continuo' | 'Aislado' | 'Pareado';
   cip_status?: string;
   expropriation_status?: string;
@@ -169,6 +181,8 @@ export interface ValuationResult {
       uf_m2: number;
       total_uf: number;
       description: string;
+      form_factor?: number;
+      location_factor?: number;
     };
     buildings: {
       m2: number;

@@ -1,5 +1,5 @@
 import { GoogleGenAI, Type } from "@google/genai";
-import { PropertyData, ValuationResult } from "../types.ts";
+import { PropertyData, ValuationResult } from "../types";
 
 let aiInstance: GoogleGenAI | null = null;
 
@@ -54,6 +54,18 @@ export async function getRegulatoryData(
   surface_verification_notes?: string;
   street_classification?: string;
   corner_street_classification?: string;
+  min_lot_size?: number;
+  upper_floor_occupancy_coefficient?: number;
+  max_height_continuous?: number;
+  max_depth_continuous?: number;
+  max_height_isolated_over_continuous?: number;
+  grouping?: string;
+  retranqueo?: string;
+  adosamiento?: string;
+  distanciamiento?: string;
+  antejardin?: string;
+  incentivos?: string;
+  condicion_incentivo?: string;
 }> {
   console.log("Consultando normativa detallada para:", { commune, sector, rol, street, number, rolManzana, rolPredio, currentZoningCode, m2_total, corner_street, street_classification, corner_street_classification });
   const ai = getAi();
@@ -113,6 +125,42 @@ export async function getRegulatoryData(
         - Densidad Bruta Máxima: Libre.
         - Incentivos (Art 40 O.L.P.R.C.C.): Permiten aumentar altura continua a 15m (5 pisos) y ocupación al 80% bajo ciertas condiciones (ej: capa vegetal en cubierta).
     
+    Specific Knowledge for San Pedro de la Paz (Parking Standards):
+    - Vivienda (Unifamiliar y Colectiva): 1 por unidad de vivienda.
+    - Industrias y bodegas: 2, con incremento de 1 cada 30 m2 construidos.
+    - Talleres Mecánicos: 2 por cada 50 m2 construidos.
+    - Comercio (Supermercado, Grandes Tiendas, Centros Comerciales): 1 cada 30 m2 construidos.
+    - Estaciones de Servicios Automotor: 1 por cada 50 m2 construidos.
+    - Centros de Servicio Automotor: 1 cada 25 m2 construidos.
+    - Discotecas y clubes nocturnos: 1 cada 4 personas (carga > 40 pers).
+    - Cafeterías, pub, restoranes: 1 cada 6 personas (carga > 40 pers).
+    - Cines, teatro, auditorios: 1 cada 15 personas.
+    - Recintos religiosos: 1 cada 20 personas.
+    - Bibliotecas, galerías: 1 cada 60 m2 construidos.
+    - Gimnasios: 1 cada 15 m2 construidos (mínimo 4).
+    - Educación (Básica/Media): 1 cada 45 alumnos + 1 cada 4 docentes.
+    - Educación (Técnica/Superior): 2 cada 30 alumnos + 2 cada 4 docentes.
+    - Clínicas y hospitales: 3 cada 5 camas (mínimo 5).
+    - Consultorios: 2 cada 60 m2 construidos (mínimo 5).
+    - Oficinas en general, bancos: 2 cada 50 m2 construidos.
+    - Clubes Sociales, juntas de vecino: 1 cada 50 m2 construidos.
+    
+    Specific Knowledge for San Pedro de la Paz (Zona ZM-1):
+    - Usos Permitidos: Residencial, Equipamiento (Científico, Comercio -excepto discotecas-, Culto y Cultura, Deporte -excepto estadios-, Educación -excepto rehabilitación-, Esparcimiento -excepto zoológicos-, Salud -excepto cementerios-, Seguridad -excepto cárceles-, Servicios, Social), Actividades Productivas (solo talleres inofensivos/molestos).
+    - Superficie Predial Mínima: 1.000 m2.
+    - Coef. Ocupación Suelo: 1.0 (vivienda extensión), 0.8 (vivienda altura y otros).
+    - Coef. Constructibilidad: 2.5 (vivienda extensión y otros), 12.0 (vivienda altura).
+    - Altura Máxima: 45 m.
+    - Sistema Agrupamiento: Aislado, Pareado y Continuo.
+    - Altura Máxima Continuidad: 10.5 metros.
+    - Porcentaje Máximo Pareo: 100% (vivienda extensión), 50% (otros).
+    - Porcentaje Máximo Continuidad: 100% (vivienda extensión), 60% (otros).
+    - Adosamiento: Se permite.
+    - Distanciamiento: Según OGUC y 4m para edificación en altura en 1° y 2° piso.
+    
+    CRITICAL CORNER CONSTRAINT (San Pedro de la Paz):
+    - En el caso de propiedades en ESQUINA, la superficie total construida NO puede exceder la capacidad permitida por la dotación de estacionamientos exigida. Este límite es mandatorio y debe prevalecer sobre el coeficiente de constructibilidad si este último permitiera una superficie mayor.
+    
     Instructions:
     1. Extract the specific values for the identified zone from the PRC of ${commune}.
     2. If a User-Provided Zoning Code is present and valid, prioritize using it.
@@ -133,6 +181,18 @@ export async function getRegulatoryData(
     - allowed_buildable_surface: The total surface area (m2) that can be built on this lot based on the constructability index and lot size (${m2_total || "unknown"} m2). Adjust for corner benefits or boundary restrictions.
     - verified_land_surface: The official land surface (m2) found in records (SII/PRC) for this ROL/Address. If not found, use the provided value but explain in notes.
     - surface_verification_notes: Observations about the surface (e.g., "Coincide con SII", "Se detecta diferencia con plano regulador", "Franja de ferrocarril descuenta 50m2").
+    - min_lot_size: Superficie predial mínima (number).
+    - upper_floor_occupancy_coefficient: Coeficiente de ocupación de los pisos superiores (number).
+    - max_height_continuous: Altura máxima de edificación continua en metros (number).
+    - max_depth_continuous: Profundidad máxima de edificación continua en metros (number).
+    - max_height_isolated_over_continuous: Altura máxima de edificación aislada sobre la continua en metros (number).
+    - grouping: Sistema de agrupamiento (Aislado, Pareado, Continuo).
+    - retranqueo: Retranqueo (string).
+    - adosamiento: Adosamiento (string).
+    - distanciamiento: Distanciamiento (string).
+    - antejardin: Antejardín (string).
+    - incentivos: Incentivos (Art 40 O.L.P.R.C.C.) (string).
+    - condicion_incentivo: Condición para acceder al incentivo (string).
     - street_classification: The official classification of the main street (Troncal, Colectora, Servicio, Local).
     - corner_street_classification: The official classification of the corner street if applicable.
     
@@ -163,9 +223,21 @@ export async function getRegulatoryData(
             verified_land_surface: { type: Type.NUMBER },
             surface_verification_notes: { type: Type.STRING },
             street_classification: { type: Type.STRING },
-            corner_street_classification: { type: Type.STRING }
+            corner_street_classification: { type: Type.STRING },
+            min_lot_size: { type: Type.NUMBER },
+            upper_floor_occupancy_coefficient: { type: Type.NUMBER },
+            max_height_continuous: { type: Type.NUMBER },
+            max_depth_continuous: { type: Type.NUMBER },
+            max_height_isolated_over_continuous: { type: Type.NUMBER },
+            grouping: { type: Type.STRING },
+            retranqueo: { type: Type.STRING },
+            adosamiento: { type: Type.STRING },
+            distanciamiento: { type: Type.STRING },
+            antejardin: { type: Type.STRING },
+            incentivos: { type: Type.STRING },
+            condicion_incentivo: { type: Type.STRING }
           },
-          required: ["zoning_code", "max_height", "constructability_index", "land_use_coefficient", "property_usage", "setback", "parking_quota", "recent_amendments", "occupancy_calculation", "constructability_calculation", "height_by_surface", "allowed_buildable_surface", "verified_land_surface", "surface_verification_notes"]
+          required: ["zoning_code", "max_height", "constructability_index", "land_use_coefficient", "property_usage", "setback", "parking_quota", "recent_amendments", "occupancy_calculation", "constructability_calculation", "height_by_surface", "allowed_buildable_surface", "verified_land_surface", "surface_verification_notes", "min_lot_size", "upper_floor_occupancy_coefficient", "max_height_continuous", "max_depth_continuous", "max_height_isolated_over_continuous", "grouping", "retranqueo", "adosamiento", "distanciamiento", "antejardin", "incentivos", "condicion_incentivo"]
         },
         tools: [
           { urlContext: {} },
@@ -237,6 +309,12 @@ export async function estimatePropertyValue(data: PropertyData, ufValue: number)
     - Min Frontage: ${data.min_frontage || "N/A"} m
     - Density: ${data.density || "N/A"}
     - Setback (Antejardín): ${data.setback || "N/A"}
+    - Antejardín (Detalle): ${data.antejardin || "N/A"}
+    - Retranqueo: ${data.retranqueo || "N/A"}
+    - Adosamiento: ${data.adosamiento || "N/A"}
+    - Distanciamiento: ${data.distanciamiento || "N/A"}
+    - Incentivos: ${data.incentivos || "N/A"}
+    - Condición Incentivo: ${data.condicion_incentivo || "N/A"}
     - Grouping (Agrupamiento): ${data.grouping || "N/A"}
     - CIP Status: ${data.cip_status || "N/A"}
     - Expropriation Status: ${data.expropriation_status || "N/A"}
@@ -305,6 +383,13 @@ export async function estimatePropertyValue(data: PropertyData, ufValue: number)
     - Specific Knowledge for Concepción (Reference from Official CIP):
         - For high-density zones: Constructability 4.0, Max Height 27m (9 floors), Continuous Height 9m, Land Occupancy 0.6.
         - Article 40 Incentives: Can increase continuous height to 15m and occupancy to 80% with green roofs.
+    - Specific Knowledge for San Pedro de la Paz (Parking Standards):
+        - Vivienda: 1 por unidad.
+        - Comercio: 1 cada 30 m2.
+        - Oficinas: 2 cada 50 m2.
+        - Educación (Básica/Media): 1 cada 45 alumnos + 1 cada 4 docentes.
+        - Salud (Clínicas): 3 cada 5 camas.
+        - CRITICAL CORNER CONSTRAINT: En esquinas, la superficie construida está limitada por la capacidad de estacionamientos permitidos.
     - If Rol SII is provided, consider its impact on tax assessment and specific location.
     - Specific Knowledge for Concepción: Manzana 1172 corresponds to zone "ESC1". CPH is the most common zone in the "Centro" sector.
     - Analyze the development potential based on the zoning code (${data.zoning_code || "Not specified"}).
@@ -445,7 +530,9 @@ export async function estimatePropertyValue(data: PropertyData, ufValue: number)
                     m2: { type: Type.NUMBER },
                     uf_m2: { type: Type.NUMBER },
                     total_uf: { type: Type.NUMBER },
-                    description: { type: Type.STRING }
+                    description: { type: Type.STRING },
+                    form_factor: { type: Type.NUMBER },
+                    location_factor: { type: Type.NUMBER }
                   },
                   required: ["m2", "uf_m2", "total_uf", "description"]
                 },

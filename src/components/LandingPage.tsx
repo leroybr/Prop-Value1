@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'motion/react';
 import { Calculator, TrendingUp, Building2, MapPin, Info } from 'lucide-react';
-import { MarketStat } from '../types.ts';
+import { MarketStat } from '../types';
 
 interface LandingPageProps {
   setActiveTab: (tab: 'intro' | 'valuation' | 'projects') => void;

@@ -1,14 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ValuationForm } from './components/ValuationForm.tsx';
-import { MarketTrends } from './components/MarketTrends.tsx';
-import { MarketMap } from './components/MarketMap.tsx';
-import { ProjectList } from './components/ProjectList.tsx';
-import { LandingPage } from './components/LandingPage.tsx';
-import { PropertyData, ValuationResult, MarketStat, Project } from './types.ts';
-import { estimatePropertyValue } from './services/geminiService.ts';
-import { useFirebase } from './components/FirebaseProvider.tsx';
-import { db, handleFirestoreError, OperationType } from './firebase.ts';
+import { ValuationForm } from './components/ValuationForm';
+import { MarketTrends } from './components/MarketTrends';
+import { MarketMap } from './components/MarketMap';
+import { ProjectList } from './components/ProjectList';
+import { LandingPage } from './components/LandingPage';
+import { PropertyData, ValuationResult, MarketStat, Project } from './types';
+import { estimatePropertyValue } from './services/geminiService';
+import { useFirebase } from './components/FirebaseProvider';
+import { db, handleFirestoreError, OperationType } from './firebase';
 import { collection, addDoc, query, where, orderBy, limit, onSnapshot, serverTimestamp } from 'firebase/firestore';
 import { Building2, TrendingUp, MapPin, Calculator, Info, LogOut, LogIn, Download, FileText, X, CheckCircle2, Map as MapIcon, History, Layout, Settings, Sparkles, ExternalLink } from 'lucide-react';
 import { PRCViewerModal } from './components/PRCViewerModal';
@@ -75,8 +75,12 @@ export default function App() {
 
   useEffect(() => {
     fetch('/api/market-stats')
-      .then(res => res.json())
-      .then(setMarketStats);
+      .then(res => {
+        if (!res.ok) throw new Error('Market stats fetch failed');
+        return res.json();
+      })
+      .then(setMarketStats)
+      .catch(err => console.error('Error fetching market stats:', err));
   }, []);
 
   // Sync projects from Firestore
@@ -866,16 +870,16 @@ export default function App() {
                         <div>
                           <p className="text-orange-leroy/80 text-sm font-medium tracking-wider">Estimación Prop value</p>
                           <h2 className="text-5xl font-bold mt-1">
-                            {valuation.estimated_price_uf.toLocaleString()} <span className="text-2xl font-normal">UF</span>
+                            {valuation.estimated_price_uf?.toLocaleString() || "0"} <span className="text-2xl font-normal">UF</span>
                           </h2>
                           <p className="text-white mt-1 text-lg">
-                            ≈ ${valuation.estimated_price_clp.toLocaleString('es-CL')} CLP
+                            ≈ ${valuation.estimated_price_clp?.toLocaleString('es-CL') || "0"} CLP
                           </p>
                         </div>
                         <div className="flex flex-col items-end gap-3">
                           <div className="bg-white/20 backdrop-blur-md p-3 rounded-lg text-center min-w-[100px]">
                             <p className="text-xs font-bold">Confianza</p>
-                            <p className="text-2xl font-bold">{(valuation.confidence_score * 100).toFixed(0)}%</p>
+                            <p className="text-2xl font-bold">{(valuation.confidence_score ? valuation.confidence_score * 100 : 0).toFixed(0)}%</p>
                           </div>
                         </div>
                       </div>
@@ -883,7 +887,7 @@ export default function App() {
                       <div className="bg-white/10 backdrop-blur-sm p-4 rounded-lg mb-6">
                         <div className="flex gap-2 items-start">
                           <Info className="w-5 h-5 mt-0.5 flex-shrink-0" />
-                          <p className="text-sm leading-relaxed">{valuation.market_context}</p>
+                          <p className="text-sm leading-relaxed">{valuation.market_context || "Sin contexto de mercado disponible"}</p>
                         </div>
                       </div>
 
@@ -898,11 +902,11 @@ export default function App() {
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        {valuation.comparables.map((comp, idx) => (
+                        {valuation.comparables?.map((comp, idx) => (
                           <div key={`comp-${idx}-${comp.price_uf}`} className="bg-white/10 p-3 rounded-md border border-white/10">
                             <p className="text-xs text-white mb-1">{comp.source}</p>
-                            <p className="font-bold">{comp.price_uf} UF</p>
-                            <p className="text-xs text-white">{comp.m2} m² • {comp.distance_km} km</p>
+                            <p className="font-bold">{comp.price_uf || 0} UF</p>
+                            <p className="text-xs text-white">{comp.m2 || 0} m² • {comp.distance_km || 0} km</p>
                           </div>
                         ))}
                       </div>
@@ -937,12 +941,12 @@ export default function App() {
                                   <FileText className="w-4 h-4 text-blue-600" />
                                 </div>
                                 <div>
-                                  <p className="font-medium text-gray-800 text-sm">{item.estimated_price_uf.toLocaleString()} UF</p>
-                                  <p className="text-[10px] text-gray-500">Confianza: {(item.confidence_score * 100).toFixed(0)}%</p>
+                                  <p className="font-medium text-gray-800 text-sm">{(item.estimated_price_uf || 0).toLocaleString()} UF</p>
+                                  <p className="text-[10px] text-gray-500">Confianza: {(item.confidence_score ? item.confidence_score * 100 : 0).toFixed(0)}%</p>
                                 </div>
                               </div>
                               <div className="text-right">
-                                <p className="text-xs text-blue-600 font-bold">${(item.estimated_price_clp / 1000000).toFixed(1)}M</p>
+                                <p className="text-xs text-blue-600 font-bold">${((item.estimated_price_clp || 0) / 1000000).toFixed(1)}M</p>
                               </div>
                             </div>
                           ))
@@ -992,12 +996,53 @@ export default function App() {
               exit={{ scale: 0.9, y: 20 }}
               className="bg-white w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-xl shadow-2xl relative"
             >
-              <button 
-                onClick={() => setShowReport(false)}
-                className="absolute top-6 right-6 p-2 hover:bg-gray-100 rounded-full transition-colors z-20"
-              >
-                <X className="w-6 h-6 text-gray-500" />
-              </button>
+              <div className="sticky top-0 bg-white/80 backdrop-blur-md z-30 p-4 border-b border-gray-100 flex justify-between items-center">
+                <div className="flex gap-2">
+                  <button 
+                    onClick={downloadPDF}
+                    disabled={isDownloading}
+                    className="bg-blue-600 text-white px-4 py-1.5 rounded-lg font-bold text-xs flex items-center gap-2 hover:bg-blue-700 transition-all shadow-md disabled:opacity-50"
+                  >
+                    {isDownloading ? (
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <Download className="w-4 h-4" />
+                    )}
+                    {isDownloading ? 'Generando...' : 'Descargar PDF'}
+                  </button>
+                  <button 
+                    onClick={() => {
+                      const text = `Hola, envío tasación de Prop-Value Chile para la propiedad en ${valuation.property_data?.commune}. Valor estimado: ${valuation.estimated_price_uf.toLocaleString()} UF.`;
+                      const phone = valuation.property_data?.client_phone?.replace(/\D/g, '') || '';
+                      window.open(`https://wa.me/${phone}?text=${encodeURIComponent(text)}`, '_blank');
+                    }}
+                    className="bg-green-600 text-white px-4 py-1.5 rounded-lg font-bold text-xs flex items-center gap-2 hover:bg-green-700 transition-all shadow-md"
+                  >
+                    <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
+                      <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.319 1.592 5.448 0 9.886-4.438 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.735-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/>
+                    </svg>
+                    WhatsApp
+                  </button>
+                  <button 
+                    onClick={() => {
+                      const subject = `Tasación Prop-Value Chile - ${valuation.property_data?.commune}`;
+                      const body = `Hola, adjunto los detalles de la tasación realizada en Prop-Value Chile.\n\nValor Estimado: ${valuation.estimated_price_uf.toLocaleString()} UF\nComuna: ${valuation.property_data?.commune}\n\nPuedes ver más detalles en el informe adjunto.`;
+                      const email = valuation.property_data?.client_email || '';
+                      window.location.href = `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+                    }}
+                    className="bg-slate-800 text-white px-4 py-1.5 rounded-lg font-bold text-xs flex items-center gap-2 hover:bg-slate-900 transition-all shadow-md"
+                  >
+                    <FileText className="w-4 h-4" />
+                    Enviar Email
+                  </button>
+                </div>
+                <button 
+                  onClick={() => setShowReport(false)}
+                  className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                >
+                  <X className="w-6 h-6 text-gray-500" />
+                </button>
+              </div>
 
               <div ref={reportRef} className="p-8 md:p-12 bg-white report-pdf-container">
                 {/* Header of the report */}
@@ -1034,6 +1079,16 @@ export default function App() {
                     <div>
                       <h4 className="text-[10px] font-bold text-blue-600 uppercase tracking-widest mb-1">Solicitante / Cliente</h4>
                       <p className="text-lg font-bold text-slate-800">{valuation.property_data?.client_name || "Particular"}</p>
+                      {valuation.property_data?.client_email && (
+                        <p className="text-xs text-slate-500 flex items-center gap-1">
+                          <span className="font-bold">Email:</span> {valuation.property_data.client_email}
+                        </p>
+                      )}
+                      {valuation.property_data?.client_phone && (
+                        <p className="text-xs text-slate-500 flex items-center gap-1">
+                          <span className="font-bold">WhatsApp:</span> {valuation.property_data.client_phone}
+                        </p>
+                      )}
                     </div>
                     <div>
                       <h4 className="text-[10px] font-bold text-blue-600 uppercase tracking-widest mb-1">Ubicación y Rol</h4>
@@ -1111,15 +1166,15 @@ export default function App() {
                   <div className="bg-gray-50 p-8 rounded-xl border border-gray-100">
                     <p className="text-sm font-bold text-blue-600 tracking-widest mb-2">Valor Estimado de Mercado</p>
                     <div className="flex items-baseline gap-2">
-                      <span className="text-6xl font-black text-gray-900">{valuation.estimated_price_uf.toLocaleString()}</span>
+                      <span className="text-6xl font-black text-gray-900">{valuation.estimated_price_uf?.toLocaleString() || "0"}</span>
                       <span className="text-2xl font-bold text-gray-400">UF</span>
                     </div>
                     <p className="text-2xl font-bold text-gray-600 mt-2">
-                      ${valuation.estimated_price_clp.toLocaleString('es-CL')} CLP
+                      ${valuation.estimated_price_clp?.toLocaleString('es-CL') || "0"} CLP
                     </p>
                     <div className="mt-6 flex items-center gap-2 text-sm text-gray-500">
                       <CheckCircle2 className="w-4 h-4 text-green-500" />
-                      <span>Basado en {valuation.comparables.length} comparables directos</span>
+                      <span>Basado en {valuation.comparables?.length || 0} comparables directos</span>
                     </div>
                   </div>
 
@@ -1129,17 +1184,17 @@ export default function App() {
                       <div className="w-full bg-gray-100 h-4 rounded-full overflow-hidden">
                         <motion.div 
                           initial={{ width: 0 }}
-                          animate={{ width: `${valuation.confidence_score * 100}%` }}
+                          animate={{ width: `${(valuation.confidence_score || 0) * 100}%` }}
                           className="h-full bg-blue-600"
                         />
                       </div>
-                      <p className="text-right text-sm font-bold mt-1 text-blue-600">{(valuation.confidence_score * 100).toFixed(0)}%</p>
+                      <p className="text-right text-sm font-bold mt-1 text-blue-600">{(valuation.confidence_score ? valuation.confidence_score * 100 : 0).toFixed(0)}%</p>
                     </div>
                     
                     <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
                       <h4 className="text-xs font-bold text-blue-800 mb-2">Análisis Técnico de Valoración</h4>
                       <p className="text-sm text-blue-900 leading-relaxed italic">
-                        "{valuation.market_context}"
+                        "{valuation.market_context || "Sin observaciones adicionales."}"
                       </p>
                     </div>
 
@@ -1180,6 +1235,20 @@ export default function App() {
                         <div className="text-slate-800 font-bold text-right">{valuation.property_data?.max_height || "Libre"}</div>
                         <div className="text-slate-400">Estacionamientos:</div>
                         <div className="text-slate-800 font-bold text-right">{valuation.property_data?.parking_quota || "Según OGUC"}</div>
+                      </div>
+
+                      <div className="mt-4 pt-4 border-t border-slate-200">
+                        <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3">Condiciones de Edificación (O.G.U.C.)</h4>
+                        <div className="grid grid-cols-2 gap-y-2 text-[10px]">
+                          <div className="text-slate-400">Coef. Ocup. Pisos Sup:</div>
+                          <div className="text-slate-800 font-bold text-right">{(valuation.property_data?.upper_floor_occupancy_coefficient || 0) * 100}%</div>
+                          <div className="text-slate-400">Alt. Máx. Continua:</div>
+                          <div className="text-slate-800 font-bold text-right">{valuation.property_data?.max_height_continuous || "N/A"} m</div>
+                          <div className="text-slate-400">Prof. Máx. Continua:</div>
+                          <div className="text-slate-800 font-bold text-right">{valuation.property_data?.max_depth_continuous || "N/A"} m</div>
+                          <div className="text-slate-400">Alt. Aislado s/ Cont:</div>
+                          <div className="text-slate-800 font-bold text-right">{valuation.property_data?.max_height_isolated_over_continuous || "N/A"} m</div>
+                        </div>
                       </div>
                       {(valuation.property_data?.cip_status || valuation.property_data?.expropriation_status) && (
                         <div className="mt-3 pt-3 border-t border-slate-200 space-y-1">
@@ -1308,25 +1377,25 @@ export default function App() {
                           <div className="bg-white/5 p-6 rounded-2xl border border-white/10">
                             <h4 className="text-green-400 font-bold text-sm uppercase tracking-widest mb-4">Fortalezas</h4>
                             <ul className="space-y-2 text-sm text-slate-300">
-                              {valuation.professional_analysis.swot.strengths.map((s, i) => <li key={i} className="flex gap-2"><span>•</span> {s}</li>)}
+                              {valuation.professional_analysis?.swot?.strengths?.map((s, i) => <li key={i} className="flex gap-2"><span>•</span> {s}</li>)}
                             </ul>
                           </div>
                           <div className="bg-white/5 p-6 rounded-2xl border border-white/10">
                             <h4 className="text-red-400 font-bold text-sm uppercase tracking-widest mb-4">Debilidades</h4>
                             <ul className="space-y-2 text-sm text-slate-300">
-                              {valuation.professional_analysis.swot.weaknesses.map((w, i) => <li key={i} className="flex gap-2"><span>•</span> {w}</li>)}
+                              {valuation.professional_analysis?.swot?.weaknesses?.map((w, i) => <li key={i} className="flex gap-2"><span>•</span> {w}</li>)}
                             </ul>
                           </div>
                           <div className="bg-white/5 p-6 rounded-2xl border border-white/10">
                             <h4 className="text-blue-400 font-bold text-sm uppercase tracking-widest mb-4">Oportunidades</h4>
                             <ul className="space-y-2 text-sm text-slate-300">
-                              {valuation.professional_analysis.swot.opportunities.map((o, i) => <li key={i} className="flex gap-2"><span>•</span> {o}</li>)}
+                              {valuation.professional_analysis?.swot?.opportunities?.map((o, i) => <li key={i} className="flex gap-2"><span>•</span> {o}</li>)}
                             </ul>
                           </div>
                           <div className="bg-white/5 p-6 rounded-2xl border border-white/10">
                             <h4 className="text-amber-400 font-bold text-sm uppercase tracking-widest mb-4">Amenazas</h4>
                             <ul className="space-y-2 text-sm text-slate-300">
-                              {valuation.professional_analysis.swot.threats.map((t, i) => <li key={i} className="flex gap-2"><span>•</span> {t}</li>)}
+                              {valuation.professional_analysis?.swot?.threats?.map((t, i) => <li key={i} className="flex gap-2"><span>•</span> {t}</li>)}
                             </ul>
                           </div>
                         </div>
@@ -1334,7 +1403,7 @@ export default function App() {
                         <div className="bg-blue-600/20 p-8 rounded-2xl border border-blue-500/30">
                           <h4 className="text-blue-400 font-bold text-sm uppercase tracking-widest mb-4">Recomendación Final</h4>
                           <p className="text-lg text-white leading-relaxed italic">
-                            "{valuation.professional_analysis.final_recommendation}"
+                            "{valuation.professional_analysis?.final_recommendation}"
                           </p>
                         </div>
                       </div>
@@ -1353,20 +1422,24 @@ export default function App() {
                           <div className="border-b border-gray-100 pb-6">
                             <div className="flex justify-between items-center mb-4">
                               <h4 className="font-bold text-slate-700">1. Terreno</h4>
-                              <span className="text-lg font-bold text-blue-600">{formatCurrencyInline(valuation.valuation_breakdown.land.total_uf)}</span>
+                              <span className="text-lg font-bold text-blue-600">{formatCurrencyInline(valuation.valuation_breakdown?.land?.total_uf || 0)}</span>
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                               <div className="bg-slate-50 p-3 rounded-lg">
                                 <p className="text-slate-500 text-xs mb-1">Superficie</p>
-                                <p className="font-medium">{valuation.valuation_breakdown.land.m2} m²</p>
+                                <p className="font-medium">{valuation.valuation_breakdown?.land?.m2 || 0} m²</p>
                               </div>
                               <div className="bg-slate-50 p-3 rounded-lg">
                                 <p className="text-slate-500 text-xs mb-1">Valor Unitario</p>
-                                <p className="font-medium text-[10px]">{formatCurrencyInline(valuation.valuation_breakdown.land.uf_m2)}/m²</p>
+                                <p className="font-medium text-[10px]">{formatCurrencyInline(valuation.valuation_breakdown?.land?.uf_m2 || 0)}/m²</p>
                               </div>
                               <div className="bg-slate-50 p-3 rounded-lg">
                                 <p className="text-slate-500 text-xs mb-1">Factor Forma</p>
-                                <p className="font-medium">{valuation.valuation_breakdown.land.form_factor}</p>
+                                <p className="font-medium">{valuation.valuation_breakdown?.land?.form_factor || "1.00"}</p>
+                              </div>
+                              <div className="bg-slate-50 p-3 rounded-lg">
+                                <p className="text-slate-500 text-xs mb-1">Factor Ubicación</p>
+                                <p className="font-medium">{valuation.valuation_breakdown?.land?.location_factor || "1.00"}</p>
                               </div>
                             </div>
                           </div>
@@ -1407,6 +1480,60 @@ export default function App() {
                       <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Materiales Predominantes</p>
                       <p className="text-sm font-bold text-slate-800">{valuation.property_data?.materiality_walls || "No especificado"}</p>
                     </div>
+                  </div>
+                </div>
+
+                {/* Condiciones de Edificación Section (CIP) */}
+                <div className="mb-12">
+                  <h3 className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2 uppercase tracking-widest">
+                    <Building2 className="w-4 h-4 text-blue-600" />
+                    Condiciones de Edificación (CIP)
+                  </h3>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="bg-blue-50/50 p-3 rounded-xl border border-blue-100">
+                      <p className="text-[10px] font-bold text-blue-600 uppercase mb-1">Superficie Predial Mínima</p>
+                      <p className="text-sm font-bold text-slate-800">{valuation.property_data?.min_lot_size ? `${valuation.property_data.min_lot_size} m²` : "N/A"}</p>
+                    </div>
+                    <div className="bg-blue-50/50 p-3 rounded-xl border border-blue-100">
+                      <p className="text-[10px] font-bold text-blue-600 uppercase mb-1">Coeficiente de Uso de Suelo</p>
+                      <p className="text-sm font-bold text-slate-800">{valuation.property_data?.land_use_coefficient || "N/A"}</p>
+                    </div>
+                    <div className="bg-blue-50/50 p-3 rounded-xl border border-blue-100">
+                      <p className="text-[10px] font-bold text-blue-600 uppercase mb-1">Coeficiente de Constructibilidad</p>
+                      <p className="text-sm font-bold text-slate-800">{valuation.property_data?.constructability_index || "N/A"}</p>
+                    </div>
+                    <div className="bg-blue-50/50 p-3 rounded-xl border border-blue-100">
+                      <p className="text-[10px] font-bold text-blue-600 uppercase mb-1">Altura Máxima de Edificación</p>
+                      <p className="text-sm font-bold text-slate-800">{valuation.property_data?.max_height ? `${valuation.property_data.max_height} m` : "N/A"}</p>
+                    </div>
+                    <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Sistema de Agrupamiento</p>
+                      <p className="text-sm font-bold text-slate-800">{valuation.property_data?.grouping || "N/A"}</p>
+                    </div>
+                    <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Retranqueo</p>
+                      <p className="text-sm font-bold text-slate-800">{valuation.property_data?.retranqueo || "No aplica"}</p>
+                    </div>
+                    <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Adosamiento</p>
+                      <p className="text-sm font-bold text-slate-800">{valuation.property_data?.adosamiento || "N/A"}</p>
+                    </div>
+                    <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Antejardín</p>
+                      <p className="text-sm font-bold text-slate-800">{valuation.property_data?.antejardin || valuation.property_data?.setback || "N/A"}</p>
+                    </div>
+                    {valuation.property_data?.incentivos && (
+                      <div className="bg-green-50/50 p-3 rounded-xl border border-green-100 col-span-2">
+                        <p className="text-[10px] font-bold text-green-600 uppercase mb-1">Incentivos (Art. 40)</p>
+                        <p className="text-xs font-medium text-slate-700">{valuation.property_data.incentivos}</p>
+                      </div>
+                    )}
+                    {valuation.property_data?.condicion_incentivo && (
+                      <div className="bg-green-50/50 p-3 rounded-xl border border-green-100 col-span-2">
+                        <p className="text-[10px] font-bold text-green-600 uppercase mb-1">Condición Incentivo</p>
+                        <p className="text-xs font-medium text-slate-700">{valuation.property_data.condicion_incentivo}</p>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -1498,25 +1625,25 @@ export default function App() {
                           <div className="bg-white/5 p-6 rounded-2xl border border-white/10">
                             <h4 className="text-green-400 font-bold text-sm uppercase tracking-widest mb-4">Fortalezas</h4>
                             <ul className="space-y-2 text-sm text-slate-300">
-                              {valuation.professional_analysis.swot.strengths.map((s, i) => <li key={i} className="flex gap-2"><span>•</span> {s}</li>)}
+                              {valuation.professional_analysis?.swot?.strengths?.map((s, i) => <li key={i} className="flex gap-2"><span>•</span> {s}</li>)}
                             </ul>
                           </div>
                           <div className="bg-white/5 p-6 rounded-2xl border border-white/10">
                             <h4 className="text-red-400 font-bold text-sm uppercase tracking-widest mb-4">Debilidades</h4>
                             <ul className="space-y-2 text-sm text-slate-300">
-                              {valuation.professional_analysis.swot.weaknesses.map((w, i) => <li key={i} className="flex gap-2"><span>•</span> {w}</li>)}
+                              {valuation.professional_analysis?.swot?.weaknesses?.map((w, i) => <li key={i} className="flex gap-2"><span>•</span> {w}</li>)}
                             </ul>
                           </div>
                           <div className="bg-white/5 p-6 rounded-2xl border border-white/10">
                             <h4 className="text-blue-400 font-bold text-sm uppercase tracking-widest mb-4">Oportunidades</h4>
                             <ul className="space-y-2 text-sm text-slate-300">
-                              {valuation.professional_analysis.swot.opportunities.map((o, i) => <li key={i} className="flex gap-2"><span>•</span> {o}</li>)}
+                              {valuation.professional_analysis?.swot?.opportunities?.map((o, i) => <li key={i} className="flex gap-2"><span>•</span> {o}</li>)}
                             </ul>
                           </div>
                           <div className="bg-white/5 p-6 rounded-2xl border border-white/10">
                             <h4 className="text-amber-400 font-bold text-sm uppercase tracking-widest mb-4">Amenazas</h4>
                             <ul className="space-y-2 text-sm text-slate-300">
-                              {valuation.professional_analysis.swot.threats.map((t, i) => <li key={i} className="flex gap-2"><span>•</span> {t}</li>)}
+                              {valuation.professional_analysis?.swot?.threats?.map((t, i) => <li key={i} className="flex gap-2"><span>•</span> {t}</li>)}
                             </ul>
                           </div>
                         </div>
@@ -1524,7 +1651,7 @@ export default function App() {
                         <div className="bg-blue-600/20 p-8 rounded-2xl border border-blue-500/30">
                           <h4 className="text-blue-400 font-bold text-sm uppercase tracking-widest mb-4">Recomendación Final</h4>
                           <p className="text-lg text-white leading-relaxed italic">
-                            "{valuation.professional_analysis.final_recommendation}"
+                            "{valuation.professional_analysis?.final_recommendation}"
                           </p>
                         </div>
                       </div>
@@ -1543,20 +1670,20 @@ export default function App() {
                           <div className="border-b border-gray-100 pb-6">
                             <div className="flex justify-between items-center mb-4">
                               <h4 className="font-bold text-slate-700">1. Terreno</h4>
-                              {formatCurrency(valuation.valuation_breakdown.land.total_uf)}
+                              {formatCurrency(valuation.valuation_breakdown?.land?.total_uf || 0)}
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                               <div className="bg-slate-50 p-3 rounded-lg">
                                 <p className="text-slate-500 text-xs mb-1">Superficie</p>
-                                <p className="font-medium">{valuation.valuation_breakdown.land.m2} m²</p>
+                                <p className="font-medium">{valuation.valuation_breakdown?.land?.m2 || 0} m²</p>
                               </div>
                               <div className="bg-slate-50 p-3 rounded-lg">
                                 <p className="text-slate-500 text-xs mb-1">Valor Unitario</p>
-                                <p className="font-medium">{valuation.valuation_breakdown.land.uf_m2} UF/m²</p>
+                                <p className="font-medium">{valuation.valuation_breakdown?.land?.uf_m2 || 0} UF/m²</p>
                               </div>
                               <div className="bg-slate-50 p-3 rounded-lg">
                                 <p className="text-slate-500 text-xs mb-1">Descripción</p>
-                                <p className="font-medium text-xs">{valuation.valuation_breakdown.land.description}</p>
+                                <p className="font-medium text-xs">{valuation.valuation_breakdown?.land?.description || ""}</p>
                               </div>
                             </div>
                           </div>
@@ -1565,10 +1692,10 @@ export default function App() {
                           <div className="border-b border-gray-100 pb-6">
                             <div className="flex justify-between items-center mb-4">
                               <h4 className="font-bold text-slate-700">2. Construcciones</h4>
-                              {formatCurrency(valuation.valuation_breakdown.buildings.total_uf)}
+                              {formatCurrency(valuation.valuation_breakdown?.buildings?.total_uf || 0)}
                             </div>
                             <div className="space-y-3 mb-4">
-                              {valuation.valuation_breakdown.buildings.details.map((detail, idx) => (
+                              {valuation.valuation_breakdown?.buildings?.details?.map((detail, idx) => (
                                 <div key={idx} className="flex justify-between items-center text-sm p-3 bg-slate-50 rounded-lg">
                                   <span className="text-slate-700 font-medium">{detail.description}</span>
                                   <div className="flex gap-6 text-slate-500 text-right">
@@ -1580,19 +1707,19 @@ export default function App() {
                               ))}
                             </div>
                             <div className="flex justify-end text-xs text-slate-500 gap-4">
-                              <span>Total Construido: {valuation.valuation_breakdown.buildings.m2} m²</span>
-                              <span>Promedio: {formatCurrencyInline(valuation.valuation_breakdown.buildings.uf_m2_avg)}/m²</span>
+                              <span>Total Construido: {valuation.valuation_breakdown?.buildings?.m2 || 0} m²</span>
+                              <span>Promedio: {formatCurrencyInline(valuation.valuation_breakdown?.buildings?.uf_m2_avg || 0)}/m²</span>
                             </div>
                           </div>
 
                           {/* Complementary Works */}
-                          {valuation.valuation_breakdown.complementary_works.total_uf > 0 && (
+                          {valuation.valuation_breakdown?.complementary_works?.total_uf > 0 && (
                             <div className="border-b border-gray-100 pb-6">
                               <div className="flex justify-between items-center mb-2">
                                 <h4 className="font-bold text-slate-700">3. Obras Complementarias</h4>
-                                {formatCurrency(valuation.valuation_breakdown.complementary_works.total_uf)}
+                                {formatCurrency(valuation.valuation_breakdown?.complementary_works?.total_uf || 0)}
                               </div>
-                              <p className="text-sm text-slate-600">{valuation.valuation_breakdown.complementary_works.description}</p>
+                              <p className="text-sm text-slate-600">{valuation.valuation_breakdown?.complementary_works?.description || ""}</p>
                             </div>
                           )}
 
@@ -1603,7 +1730,7 @@ export default function App() {
                               <p className="text-sm text-slate-400">Suma de Terreno + Construcciones + Obras</p>
                             </div>
                             <div className="text-right">
-                              <p className="text-3xl font-bold">{formatCurrencyInline(valuation.valuation_breakdown.total_uf)}</p>
+                              <p className="text-3xl font-bold">{formatCurrencyInline(valuation.valuation_breakdown?.total_uf || 0)}</p>
                             </div>
                           </div>
                         </div>
@@ -1614,21 +1741,21 @@ export default function App() {
                     <div className="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm">
                       <h3 className="text-xl font-bold text-slate-800 mb-6">Comparables de Mercado (Detallado)</h3>
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        {valuation.professional_analysis.comparables.map((comp, idx) => (
+                        {valuation.professional_analysis?.comparables?.map((comp, idx) => (
                           <div key={idx} className="p-6 bg-slate-50 rounded-2xl border border-slate-100">
                             <p className="text-xs text-slate-500 font-bold uppercase mb-2">Comparable #{idx + 1}</p>
                             <p className="font-bold text-slate-800 mb-3 truncate">{comp.address}</p>
                             <div className="flex justify-between items-baseline mb-1">
                               <span className="text-sm text-slate-600">Precio:</span>
-                              <span className="text-lg font-bold text-blue-600">{comp.price_uf.toLocaleString()} UF</span>
+                              <span className="text-lg font-bold text-blue-600">{comp.price_uf?.toLocaleString() || 0} UF</span>
                             </div>
                             <div className="flex justify-between items-baseline text-xs text-slate-500">
                               <span>Superficie:</span>
-                              <span>{comp.m2} m²</span>
+                              <span>{comp.m2 || 0} m²</span>
                             </div>
                             <div className="flex justify-between items-baseline text-xs text-slate-500">
                               <span>Distancia:</span>
-                              <span>{comp.distance_km} km</span>
+                              <span>{comp.distance_km || 0} km</span>
                             </div>
                           </div>
                         ))}
@@ -1655,12 +1782,12 @@ export default function App() {
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
-                          {valuation.comparables.map((comp, idx) => (
+                          {valuation.comparables?.map((comp, idx) => (
                             <tr key={idx} className="text-sm hover:bg-gray-50 transition-colors">
-                              <td className="px-6 py-4 font-medium text-slate-800">{comp.source}</td>
-                              <td className="px-6 py-4 text-right font-bold text-blue-600">{comp.price_uf.toLocaleString()} UF</td>
-                              <td className="px-6 py-4 text-right">{comp.m2} m²</td>
-                              <td className="px-6 py-4 text-right text-slate-500">{comp.distance_km} km</td>
+                              <td className="px-6 py-4 font-medium text-slate-800">{comp.source || "N/A"}</td>
+                              <td className="px-6 py-4 text-right font-bold text-blue-600">{(comp.price_uf || 0).toLocaleString()} UF</td>
+                              <td className="px-6 py-4 text-right">{comp.m2 || 0} m²</td>
+                              <td className="px-6 py-4 text-right text-slate-500">{comp.distance_km || 0} km</td>
                             </tr>
                           ))}
                         </tbody>

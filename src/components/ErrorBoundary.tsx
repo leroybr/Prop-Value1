@@ -1,5 +1,4 @@
-import * as React from 'react';
-import { ErrorInfo, ReactNode } from 'react';
+import React, { Component, ErrorInfo, ReactNode } from 'react';
 
 interface Props {
   children: ReactNode;
@@ -10,11 +9,15 @@ interface State {
   error: Error | null;
 }
 
-export class ErrorBoundary extends React.Component<Props, State> {
-  public state: State = {
-    hasError: false,
-    error: null
-  };
+// ErrorBoundary component to catch and display runtime errors gracefully.
+class ErrorBoundary extends Component<Props, State> {
+  constructor(props: Props) {
+    super(props);
+    this.state = {
+      hasError: false,
+      error: null
+    };
+  }
 
   public static getDerivedStateFromError(error: Error): State {
     return { hasError: true, error };
@@ -25,17 +28,18 @@ export class ErrorBoundary extends React.Component<Props, State> {
   }
 
   public render() {
+    console.log('ErrorBoundary rendering, hasError:', this.state.hasError);
     if (this.state.hasError) {
       let errorMessage = "Lo sentimos, ha ocurrido un error inesperado.";
       
       try {
-        // Check if it's a Firestore error JSON
-        const firestoreError = JSON.parse(this.state.error?.message || "");
-        if (firestoreError.error && firestoreError.operationType) {
-          errorMessage = `Error de base de datos (${firestoreError.operationType}): ${firestoreError.error}`;
+        if (this.state.error?.message) {
+          const firestoreError = JSON.parse(this.state.error.message);
+          if (firestoreError.error && firestoreError.operationType) {
+            errorMessage = `Error de base de datos (${firestoreError.operationType}): ${firestoreError.error}`;
+          }
         }
       } catch (e) {
-        // Not a JSON error, use the message directly if it's simple
         if (this.state.error?.message) {
           errorMessage = this.state.error.message;
         }
@@ -62,6 +66,8 @@ export class ErrorBoundary extends React.Component<Props, State> {
       );
     }
 
-    return (this as any).props.children;
+    return this.props.children;
   }
 }
+
+export default ErrorBoundary;

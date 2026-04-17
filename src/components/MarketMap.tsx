@@ -1,5 +1,20 @@
 import React from 'react';
 import { MapPin, Building2, Home } from 'lucide-react';
+import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import L from 'leaflet';
+
+// Fix for default marker icons in Leaflet with React
+import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
+import markerIcon from 'leaflet/dist/images/marker-icon.png';
+import markerShadow from 'leaflet/dist/images/marker-shadow.png';
+
+// @ts-ignore
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: markerIcon2x,
+  iconUrl: markerIcon,
+  shadowUrl: markerShadow,
+});
 
 interface Property {
   id: string;
@@ -7,30 +22,35 @@ interface Property {
   price_uf: number;
   m2: number;
   type: string;
-  x: number;
-  y: number;
+  lat: number;
+  lng: number;
 }
 
 const mockProperties: Record<string, Property[]> = {
   'Metropolitana': [
-    { id: '1', commune: 'Providencia', price_uf: 5200, m2: 65, type: 'Depto', x: 45, y: 40 },
-    { id: '2', commune: 'Las Condes', price_uf: 8400, m2: 85, type: 'Depto', x: 65, y: 30 },
-    { id: '3', commune: 'Santiago', price_uf: 3100, m2: 45, type: 'Depto', x: 35, y: 50 },
-    { id: '4', commune: 'Ñuñoa', price_uf: 4800, m2: 70, type: 'Depto', x: 55, y: 55 },
-    { id: '5', commune: 'Vitacura', price_uf: 12500, m2: 120, type: 'Casa', x: 75, y: 20 },
+    { id: '1', commune: 'Providencia', price_uf: 5200, m2: 65, type: 'Depto', lat: -33.431, lng: -70.612 },
+    { id: '2', commune: 'Las Condes', price_uf: 8400, m2: 85, type: 'Depto', lat: -33.412, lng: -70.566 },
+    { id: '3', commune: 'Santiago', price_uf: 3100, m2: 45, type: 'Depto', lat: -33.448, lng: -70.667 },
+    { id: '4', commune: 'Ñuñoa', price_uf: 4800, m2: 70, type: 'Depto', lat: -33.454, lng: -70.597 },
+    { id: '5', commune: 'Vitacura', price_uf: 12500, m2: 120, type: 'Casa', lat: -33.381, lng: -70.578 },
   ],
   'Biobío': [
-    { id: '6', commune: 'Concepción (Centro)', price_uf: 4200, m2: 60, type: 'Depto', x: 50, y: 45 },
-    { id: '7', commune: 'San Pedro (Huertos)', price_uf: 6500, m2: 110, type: 'Casa', x: 40, y: 60 },
-    { id: '8', commune: 'Talcahuano', price_uf: 3500, m2: 55, type: 'Depto', x: 30, y: 35 },
-    { id: '9', commune: 'Chiguayante', price_uf: 4900, m2: 80, type: 'Casa', x: 70, y: 70 },
-    { id: '10', commune: 'Concepción (Lomas)', price_uf: 5800, m2: 75, type: 'Depto', x: 55, y: 35 },
-    { id: '11', commune: 'San Pedro (Andalué)', price_uf: 8200, m2: 140, type: 'Casa', x: 35, y: 65 },
+    { id: '6', commune: 'Concepción (Centro)', price_uf: 4200, m2: 60, type: 'Depto', lat: -36.827, lng: -73.050 },
+    { id: '7', commune: 'San Pedro (Huertos)', price_uf: 6500, m2: 110, type: 'Casa', lat: -36.852, lng: -73.078 },
+    { id: '8', commune: 'Talcahuano', price_uf: 3500, m2: 55, type: 'Depto', lat: -36.716, lng: -73.116 },
+    { id: '9', commune: 'Chiguayante', price_uf: 4900, m2: 80, type: 'Casa', lat: -36.916, lng: -73.016 },
+    { id: '10', commune: 'Concepción (Lomas)', price_uf: 5800, m2: 75, type: 'Depto', lat: -36.800, lng: -73.030 },
+    { id: '11', commune: 'San Pedro (Andalué)', price_uf: 8200, m2: 140, type: 'Casa', lat: -36.845, lng: -73.065 },
   ]
 };
 
+const regionCenters = {
+  'Metropolitana': [-33.448, -70.667] as [number, number],
+  'Biobío': [-36.827, -73.050] as [number, number]
+};
+
 export const MarketMap: React.FC = () => {
-  const [region, setRegion] = React.useState<'Metropolitana' | 'Biobío'>('Metropolitana');
+  const [region, setRegion] = React.useState<'Metropolitana' | 'Biobío'>('Biobío');
   const properties = mockProperties[region];
 
   return (
@@ -39,7 +59,7 @@ export const MarketMap: React.FC = () => {
         <div>
           <h2 className="text-lg md:text-xl font-medium text-slate-800 flex items-center gap-2">
             <MapPin className="text-blue-600 w-5 h-5" />
-            Mapa de Oportunidades
+            Mapa de Oportunidades y Referencia GIS
           </h2>
           <div className="flex gap-2 mt-2">
             {['Metropolitana', 'Biobío'].map(r => (
@@ -67,40 +87,41 @@ export const MarketMap: React.FC = () => {
         </div>
       </div>
 
-      <div className="relative aspect-video bg-gray-50 rounded-xl overflow-hidden border border-gray-100">
-        {/* Mock Map Background (Abstract Grid) */}
-        <div className="absolute inset-0 opacity-10" style={{ 
-          backgroundImage: 'radial-gradient(#0A4F41 0.5px, transparent 0.5px)', 
-          backgroundSize: '24px 24px' 
-        }}></div>
-
-        {/* Property Markers */}
-        {properties.map(prop => (
-          <div 
-            key={prop.id}
-            className="absolute group cursor-pointer"
-            style={{ left: `${prop.x}%`, top: `${prop.y}%` }}
-          >
-            <div className={`p-1.5 rounded-full shadow-lg transition-transform group-hover:scale-125 ${prop.type === 'Depto' ? 'bg-blue-600' : 'bg-orange-600'}`}>
-              <Building2 className="w-3 h-3 text-white" />
-            </div>
-            
-            {/* Tooltip */}
-            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-20">
-              <div className="bg-gray-900 text-white p-2 rounded-lg text-xs whitespace-nowrap shadow-xl">
-                <p className="font-bold">{prop.commune}</p>
-                <p>{prop.price_uf} UF • {prop.m2} m²</p>
-              </div>
-              <div className="w-2 h-2 bg-gray-900 rotate-45 absolute -bottom-1 left-1/2 -translate-x-1/2"></div>
-            </div>
-          </div>
-        ))}
+      <div className="relative aspect-video bg-gray-100 rounded-xl overflow-hidden border border-gray-200 z-0">
+        <MapContainer 
+          center={regionCenters[region]} 
+          zoom={12} 
+          style={{ height: '100%', width: '100%' }}
+          scrollWheelZoom={false}
+        >
+          <TileLayer
+            attribution='Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community'
+            url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+          />
+          {properties.map(prop => (
+            <Marker key={prop.id} position={[prop.lat, prop.lng]}>
+              <Popup>
+                <div className="text-xs">
+                  <p className="font-bold text-blue-800">{prop.commune}</p>
+                  <p className="font-medium">{prop.type} • {prop.price_uf.toLocaleString()} UF</p>
+                  <p className="text-gray-500">{prop.m2} m² • {(prop.price_uf / prop.m2).toFixed(1)} UF/m²</p>
+                </div>
+              </Popup>
+            </Marker>
+          ))}
+        </MapContainer>
 
         {/* Map Legend/Overlay */}
-        <div className="absolute bottom-4 left-4 bg-white/80 backdrop-blur-sm p-2 rounded-lg border border-gray-200 text-[10px] text-slate-500">
+        <div className="absolute bottom-4 left-4 bg-white/90 backdrop-blur-sm p-2 rounded-lg border border-gray-200 text-[10px] text-slate-600 z-[1000] shadow-md">
+          <p className="font-bold flex items-center gap-1">
+            <Sparkles className="w-3 h-3 text-blue-600" />
+            Capa: Satelital Esri World Imagery
+          </p>
           <p>{region === 'Metropolitana' ? 'Región Metropolitana • Santiago' : 'Región del Biobío • Concepción'}</p>
         </div>
       </div>
     </div>
   );
 };
+
+import { Sparkles } from 'lucide-react';
