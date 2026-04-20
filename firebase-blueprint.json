@@ -1,0 +1,88 @@
+{
+  "entities": {
+    "user": {
+      "title": "User Profile",
+      "description": "Stores user-specific settings and profile data.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Unique identifier for the user." },
+        "email": { "type": "string", "format": "email", "description": "User's email address." },
+        "displayName": { "type": "string", "description": "User's display name." },
+        "photoURL": { "type": "string", "description": "URL to the user's profile photo." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "When the user profile was created." }
+      },
+      "required": ["uid", "email", "createdAt"]
+    },
+    "valuation": {
+      "title": "Property Valuation",
+      "description": "A single property valuation record.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "ID of the user who performed the valuation." },
+        "client_name": { "type": "string" },
+        "property_type": { "type": "string" },
+        "commune": { "type": "string" },
+        "sector": { "type": "string" },
+        "address_street": { "type": "string" },
+        "address_number": { "type": "string" },
+        "rol_sii": { "type": "string" },
+        "avaluo_fiscal": { "type": "number" },
+        "m2_useful": { "type": "number" },
+        "m2_total": { "type": "number" },
+        "bedrooms": { "type": "number" },
+        "bathrooms": { "type": "number" },
+        "parking": { "type": "number" },
+        "storage": { "type": "number" },
+        "year_built": { "type": "number" },
+        "gis_reference_id": { "type": "string" },
+        "is_corner": { "type": "boolean" },
+        "estimated_price_uf": { "type": "number" },
+        "estimated_price_clp": { "type": "number" },
+        "confidence_score": { "type": "number" },
+        "market_context": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "commune", "estimated_price_uf", "createdAt"]
+    },
+    "project": {
+      "title": "Real Estate Project",
+      "description": "A new real estate project or building development.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "developer": { "type": "string" },
+        "region": { "type": "string", "enum": ["Biobío", "Metropolitana"] },
+        "commune": { "type": "string" },
+        "address": { "type": "string" },
+        "status": { "type": "string" },
+        "floors": { "type": "number" },
+        "total_units": { "type": "number" },
+        "amenities": { "type": "array", "items": { "type": "string" } },
+        "sustainability_features": { "type": "array", "items": { "type": "string" } },
+        "avg_price_uf_m2": { "type": "number" },
+        "coordinates": {
+          "type": "object",
+          "properties": {
+            "lat": { "type": "number" },
+            "lng": { "type": "number" }
+          }
+        }
+      },
+      "required": ["name", "region", "commune", "status"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "user",
+      "description": "User profile documents."
+    },
+    "/valuations/{valuationId}": {
+      "schema": "valuation",
+      "description": "Collection of all property valuations."
+    },
+    "/projects/{projectId}": {
+      "schema": "project",
+      "description": "Collection of new real estate projects."
+    }
+  }
+}

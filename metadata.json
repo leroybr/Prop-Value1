@@ -1,0 +1,5 @@
+{
+  "name": "Prop value Chile",
+  "description": "Automated Valuation Model (AVM) and real estate data platform for the Chilean market.",
+  "requestFramePermissions": ["geolocation"]
+}
