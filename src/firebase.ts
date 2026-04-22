@@ -4,14 +4,15 @@ import { initializeFirestore, collection, doc, setDoc, getDoc, getDocs, query, w
 import firebaseConfigJson from '../firebase-applet-config.json';
 
 // Usamos las variables de entorno configuradas en Vercel, con fallback al JSON local
+// Configuración de Firebase optimizada para Vite y Vercel
 const firebaseConfig = {
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || firebaseConfigJson.projectId,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || firebaseConfigJson.project_id,
   appId: import.meta.env.VITE_FIREBASE_APP_ID || firebaseConfigJson.appId,
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY || firebaseConfigJson.apiKey,
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || firebaseConfigJson.authDomain,
   storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || firebaseConfigJson.storageBucket,
   messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || firebaseConfigJson.messagingSenderId,
-  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || firebaseConfigJson.measurementId,
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || firebaseConfigJson.measurementId
 };
 
 const firestoreDatabaseId = import.meta.env.VITE_FIREBASE_FIRESTORE_DATABASE_ID || firebaseConfigJson.firestoreDatabaseId;
