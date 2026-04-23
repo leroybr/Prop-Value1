@@ -29,6 +29,7 @@ export interface PropertyData {
   avaluo_fiscal?: number;
   address_street?: string;
   address_number?: string;
+  region: 'Biobío' | 'Metropolitana';
   commune: string;
   sector?: string;
   zoning_code?: string;

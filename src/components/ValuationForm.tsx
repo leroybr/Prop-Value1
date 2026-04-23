@@ -32,6 +32,7 @@ const schema = z.object({
   avaluo_fiscal: optionalNumber,
   address_street: z.string().optional(),
   address_number: z.string().optional(),
+  region: z.enum(['Biobío', 'Metropolitana']),
   commune: z.string().min(1, "La comuna es requerida"),
   sector: z.string().optional(),
   zoning_code: z.string().optional(),
@@ -187,11 +188,14 @@ const electricityOptions = ['Público', 'Privado', 'Generador'];
 const complementaryOptions = ["Piscina de Hormigón", "Bodegas", "Cierros Perimetrales", "Pozo Profundo", "Galpón"];
 const serviceOptions = ["Metro", "Transporte Público", "Colegios", "Hospitales", "Comercio", "Parques", "Seguridad"];
 
-const communes = [
-  "Las Condes", "Providencia", "Santiago", "Ñuñoa", "Vitacura", "Lo Barnechea", 
-  "La Reina", "Macul", "San Miguel", "La Florida", "Maipú", "Puente Alto",
-  "Concepción", "Talcahuano", "San Pedro de la Paz", "Chiguayante", "Hualpén"
-];
+const regionsMapping = {
+  'Biobío': [
+    "Concepción", "Talcahuano", "San Pedro de la Paz", "Chiguayante", "Hualpén", "Penco", "Tomé", "Coronel", "Lota"
+  ],
+  'Metropolitana': [
+    "Las Condes", "Providencia", "Santiago", "Ñuñoa", "Vitacura", "Lo Barnechea", "La Reina", "Macul", "San Miguel", "La Florida", "Maipú", "Puente Alto", "Colina", "Lampa", "Tiltil", "Quilicura", "Huechuraba", "Conchalí", "Quinta Normal", "Estación Central"
+  ]
+};
 
 const amenityOptions = ["Piscina", "Quincho", "Gimnasio", "Lavandería", "Sala Multiuso", "Bicicletero"];
 const sustainabilityOptions = ["Paneles Solares", "Aislación Térmica", "Reciclaje", "Ventanas Termopanel"];
@@ -202,6 +206,8 @@ export const ValuationForm: React.FC<Props> = ({ onSubmit, isLoading, isPRCModal
     defaultValues: {
       valuation_type: 'basic',
       property_type: 'Departamento',
+      region: 'Biobío',
+      commune: 'Concepción',
       bedrooms: 2,
       bathrooms: 2,
       parking: 1,
@@ -248,13 +254,24 @@ export const ValuationForm: React.FC<Props> = ({ onSubmit, isLoading, isPRCModal
   const selectedComplementary = watch("complementary_works") || [];
   const selectedUsage = watch("property_usage");
   const propertyType = watch("property_type");
+  const selectedRegion = watch("region") as 'Biobío' | 'Metropolitana';
   const isPremium = watch("valuation_type") === 'professional';
+
+  // Update commune list when region changes
+  React.useEffect(() => {
+    const availableCommunes = regionsMapping[selectedRegion] || [];
+    const currentCommune = watch("commune");
+    if (!availableCommunes.includes(currentCommune)) {
+      setValue("commune", availableCommunes[0] || "");
+    }
+  }, [selectedRegion, setValue, watch]);
 
 
   const [usageSearch, setUsageSearch] = React.useState("");
   const [showUsageOptions, setShowUsageOptions] = React.useState(false);
   const [isFetchingNorms, setIsFetchingNorms] = React.useState(false);
   const [fetchError, setFetchError] = React.useState<string | null>(null);
+  const [coordinates, setCoordinates] = React.useState<{lat: number, lng: number} | null>(null);
 
   const commune = watch("commune");
   const sector = watch("sector");
@@ -283,9 +300,7 @@ export const ValuationForm: React.FC<Props> = ({ onSubmit, isLoading, isPRCModal
   }, [rolManzana, rolPredio, rol, setValue]);
 
   const handleFetchNorms = async () => {
-    const apiKey = import.meta.env.VITE_GEMINI_API_KEY || 
-                   (typeof process !== 'undefined' ? process.env.GEMINI_API_KEY : null) ||
-                   (window as any).process?.env?.GEMINI_API_KEY;
+    const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
 
     if (!apiKey || apiKey === "undefined") {
       setFetchError("Error: No se ha configurado la clave de API de Gemini. Si estás en Vercel, agrégala como VITE_GEMINI_API_KEY y haz un 'Redeploy'.");
@@ -299,6 +314,7 @@ export const ValuationForm: React.FC<Props> = ({ onSubmit, isLoading, isPRCModal
     
     setIsFetchingNorms(true);
     setFetchError(null);
+    setCoordinates(null);
     try {
       const currentZoningCode = watch("zoning_code");
       const m2Total = watch("m2_total");
@@ -331,6 +347,11 @@ export const ValuationForm: React.FC<Props> = ({ onSubmit, isLoading, isPRCModal
       if (data.grouping) setValue("grouping", data.grouping as any);
       if (data.street_classification) setValue("street_classification", data.street_classification);
       if (data.corner_street_classification) setValue("corner_street_classification", data.corner_street_classification);
+      
+      if (typeof data.latitude === 'number' && typeof data.longitude === 'number') {
+        setCoordinates({ lat: data.latitude, lng: data.longitude });
+      }
+      
       setUsageSearch(data.property_usage);
     } catch (error: any) {
       console.error("Error fetching norms:", error);
@@ -415,134 +436,6 @@ export const ValuationForm: React.FC<Props> = ({ onSubmit, isLoading, isPRCModal
         <div className="bg-white p-4 rounded-2xl border-2 border-blue-100 shadow-sm mb-4">
           <div className="flex flex-col md:flex-row items-center justify-between gap-3 mb-3">
             <label className="text-lg font-bold text-slate-800 uppercase tracking-widest">Tipo de Tasación</label>
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setValue('valuation_type', 'professional');
-                  setValue('client_name', 'SOCIEDAD DE INVERSIONES CHILE SPA');
-                  setValue('property_type', 'Local Comercial');
-                  setValue('commune', 'Concepción');
-                  setValue('address_street', 'Aníbal Pinto');
-                  setValue('address_number', '343');
-                  setValue('gis_reference_id', '11791');
-                  setValue('height_by_surface', '15 metros (Aprox. 5 pisos)');
-                  setValue('continuous_building_details', '9m de altura máxima para edificación continua');
-                  setValue('allowed_buildable_surface', '1.250 m² totales');
-                  setValue('parking_quota', '1 cada 50 m2');
-                  setValue('year_built', 2015);
-                  setValue('floors', 1);
-                  setValue('materiality_walls', 'Albañilería Reforzada');
-                  setValue('kitchen_description', 'Kitchenette integrada');
-                  setValue('bathrooms_description', 'Baño universal accesible');
-                  setValue('rtv_status', 'Recepción Parcial');
-                  setValue('street_classification', 'Troncal');
-                  setValue('is_corner', true);
-                  setValue('corner_street', 'San Martín');
-                  setValue('corner_street_classification', 'Servicio');
-                  setValue('sector', 'Centro / Plaza de Armas (Local 29)');
-                  setValue('rol_manzana', '136');
-                  setValue('rol_predio', '126');
-                  setValue('rol_sii', '136-126');
-                  setValue('avaluo_fiscal', 676887653);
-                  setValue('m2_total', 959);
-                  setValue('m2_useful', 385.6);
-                  setValue('property_usage', 'Comercial');
-                  setValue('conservation_state', 'Regular');
-                  setValue('construction_quality', 'Media');
-                  setValue('security_level', 'Alta');
-                  setValue('noise_level', 'Moderado');
-                  setValue('year_built', 1961);
-                  setValue('floors', 2);
-                  setValue('materiality_walls', 'Hormigón Armado y Albañilería');
-                  setValue('kitchen_description', 'Cocina equipada, muebles de madera');
-                  setValue('bathrooms_description', 'Porcelanato, grifería de alta calidad');
-                  setValue('rtv_status', 'Recepción Total');
-                  setValue('view_quality', 'Despejada');
-                  setValue('zoning_code', 'CPH (Centro y Plazas Históricas)');
-                  setValue('height_by_surface', '27 metros (Aprox. 9 pisos)');
-                  setValue('continuous_building_details', '15m de altura máxima para edificación continua (Art. 40)');
-                  setValue('allowed_buildable_surface', '4.795 m² totales');
-                  setValue('max_height', 11);
-                  setValue('parking_quota', '1 cada 40 m2 útiles');
-                  setValue('constructability_index', 5.0);
-                  setValue('land_use_coefficient', 0.6);
-                  setValue('min_lot_size', 400);
-                  setValue('min_frontage', 15);
-                  setValue('density', "Libre");
-                  setValue('setback', "No aplica");
-                  setValue('antejardin', "5m (Prod/Infra) / 4m (Otros)");
-                  setValue('retranqueo', "No aplica");
-                  setValue('adosamiento', "Permitido (excepto Prod/Infra)");
-                  setValue('distanciamiento', "Según Art. 2.6.3 OGUC");
-                  setValue('incentivos', "Art. 40: Altura cont. 15m / Prof. 80%");
-                  setValue('condicion_incentivo', "Capa vegetal en cubierta o patio comunitario");
-                  setValue('grouping', "Continuo");
-                  setValue('cip_status', "Sin antecedentes (Solicitar CIP)");
-                  setValue('expropriation_status', "No se aportó información (Solicitar respaldo)");
-                  setValue('access_description', "Se produce en ángulo recto a través de los dos accesos de la galería: calles Aníbal Pinto y San Martín, principales vías del centro.");
-                  setValue('distribution_description', "1° Nivel: Plantas libres, hall de acceso, baños público, sala principal con escenario. 2° Nivel: Bodega, 2 oficinas, baño y sala de proyección.");
-                  setValue('structure_muros', "Hormigón Armado y Albañilería Reforzada");
-                  setValue('structure_entrepiso', "Hormigón Armado");
-                  setValue('structure_escalera', "Hormigón Armado");
-                  setValue('structure_techumbre', "Planchas de acero zincado");
-                  setValue('structure_cubierta', "Acero Zincado");
-                  setValue('finishes_walls', "Pintura sobre estuco y enlucido");
-                  setValue('finishes_floors', "Porcelanato y Cerámicos");
-                  setValue('finishes_ceilings', "Enlucido");
-                  setValue('sanitary_artifacts', "Enlozados de color blanco");
-                  setValue('land_shape', "Irregular");
-                  setValue('land_topography', "Plana");
-                  setValue('front_depth_ratio', "1:4");
-                  setValue('permit_number', "20/01/1962");
-                  setValue('permit_date', "1962-01-20");
-                  setValue('reception_number', "170");
-                  setValue('reception_date', "1962-10-25");
-                  setValue('year_built', 1961);
-                  setValue('proximity_to_services', ["Metro", "Transporte Público", "Colegios", "Comercio", "Seguridad"]);
-                  setValue('sector_description', "Barrio centro en torno al Centro Metropolitano. Tipología CPH. Sector de densidad alta, consolidado y equipado a excelente nivel, destinado a nivel socioeconómico medio-alto y con predominio comercial y/o de servicios. Urbanización completa de alta calidad (hormigón).");
-                  setValue('notes', "Se considera a la propiedad como subutilizada, pudiendo aprovechar su amplia superficie a tan poca distancia de la Plaza de Armas para generar un destino comercial más potente y renovado. Sustentación: Método de comparación de mercado con descuento por negociación. Usos Permitidos: Residencial, Equipamiento (Comercio, Culto, Cultura, Deporte, Educación, Esparcimiento, Salud, Seguridad, Servicios y Social).");
-                  setValue('advantages', "Buen emplazamiento, centro comercial y financiero. Versatilidad de usos. Alta demanda y rotación de arriendos. Entorno privilegiado. Doble acceso (San Martín y Aníbal Pinto).");
-                  setValue('disadvantages', "Mal estado general de mantención. Alta inversión requerida para renovación por la magnitud del bien.");
-                }}
-                className="text-[10px] bg-blue-50 text-blue-600 px-2 py-1 rounded-full font-bold hover:bg-blue-100 transition-colors border border-blue-200"
-              >
-                Ejemplo Concepción
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setValue('valuation_type', 'professional');
-                  setValue('client_name', 'INVERSIONES SAN PEDRO SPA');
-                  setValue('property_type', 'Casa');
-                  setValue('commune', 'San Pedro de la Paz');
-                  setValue('address_street', 'Av. Michimalonco');
-                  setValue('address_number', '1200');
-                  setValue('sector', 'Andalué');
-                  setValue('zoning_code', 'ZM-1');
-                  setValue('m2_total', 1200);
-                  setValue('m2_useful', 250);
-                  setValue('property_usage', 'Habitacional');
-                  setValue('year_built', 2018);
-                  setValue('floors', 2);
-                  setValue('max_height', 45);
-                  setValue('constructability_index', 2.5);
-                  setValue('land_use_coefficient', 1.0);
-                  setValue('min_lot_size', 1000);
-                  setValue('max_height_continuous', 10.5);
-                  setValue('grouping', 'Aislado');
-                  setValue('parking_quota', '1 por unidad de vivienda');
-                  setValue('conservation_state', 'Excelente');
-                  setValue('construction_quality', 'Superior');
-                  setValue('security_level', 'Alta');
-                  setValue('noise_level', 'Silencioso');
-                  setValue('sector_description', "Zona Mixta ZM-1 consolidada. Alta plusvalía y equipamiento completo.");
-                }}
-                className="text-[10px] bg-green-50 text-green-600 px-2 py-1 rounded-full font-bold hover:bg-green-100 transition-colors border border-green-200"
-              >
-                Ejemplo San Pedro (ZM-1)
-              </button>
-            </div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <label className={`relative flex flex-col p-4 cursor-pointer rounded-xl border-2 transition-all ${watch('valuation_type') === 'basic' ? 'border-blue-600 bg-blue-50 shadow-md' : 'border-gray-100 hover:border-blue-200'}`}>
@@ -666,13 +559,13 @@ export const ValuationForm: React.FC<Props> = ({ onSubmit, isLoading, isPRCModal
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-12 gap-3 mb-4">
-          {/* FILA 1: DIRECCIÓN (8+2+2 = 12) */}
-          <div className="md:col-span-8 space-y-1">
-            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-tight">Dirección (Calle / Av.)</label>
+          {/* FILA 1: UBICACIÓN COMPACTA (3+2+3+2+2 = 12) */}
+          <div className="md:col-span-3 space-y-1">
+            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-tight">Calle / Av.</label>
             <div className="relative group">
               <input 
                 type="text" 
-                placeholder="Ej: Av. Aníbal Pinto"
+                placeholder="Ej: Aníbal Pinto"
                 {...register("address_street")}
                 className="w-full h-10 px-3 pr-10 border-2 border-slate-50 bg-slate-50/30 rounded-lg outline-none focus:border-blue-500 focus:bg-white text-sm font-medium transition-all shadow-inner"
               />
@@ -687,6 +580,37 @@ export const ValuationForm: React.FC<Props> = ({ onSubmit, isLoading, isPRCModal
               {...register("address_number")}
               className="w-full h-10 px-2 border-2 border-slate-50 bg-slate-50/30 rounded-lg outline-none focus:border-blue-500 focus:bg-white text-sm font-black text-center transition-all shadow-inner"
             />
+          </div>
+          <div className="md:col-span-3 space-y-1">
+            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-tight">Sector / Barrio</label>
+            <input 
+              type="text" 
+              placeholder="Ej: Andalué"
+              {...register("sector")}
+              className="w-full h-10 px-3 border-2 border-slate-50 bg-slate-50/30 rounded-lg outline-none focus:border-blue-500 focus:bg-white text-sm font-medium transition-all shadow-inner"
+            />
+          </div>
+          <div className="md:col-span-3 space-y-1">
+            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-tight">Región</label>
+            <select 
+              {...register("region")}
+              className="w-full h-10 px-3 border-2 border-slate-50 bg-slate-50/30 rounded-lg outline-none focus:border-blue-500 focus:bg-white text-sm font-medium transition-all shadow-inner appearance-none"
+            >
+              {Object.keys(regionsMapping).map(r => (
+                <option key={r} value={r}>{r}</option>
+              ))}
+            </select>
+          </div>
+          <div className="md:col-span-3 space-y-1">
+            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-tight">Comuna</label>
+            <select 
+              {...register("commune")}
+              className={`w-full h-10 px-3 border-2 rounded-lg outline-none focus:border-blue-500 text-sm font-medium bg-white transition-all shadow-inner appearance-none ${errors.commune ? 'border-red-500' : 'border-slate-50'}`}
+            >
+              {(regionsMapping[selectedRegion] || []).map(c => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
           </div>
           <div className="md:col-span-2 space-y-1">
             <label className="text-[10px] font-bold text-orange-600 uppercase tracking-tight flex items-center gap-1">
@@ -705,56 +629,74 @@ export const ValuationForm: React.FC<Props> = ({ onSubmit, isLoading, isPRCModal
             </div>
           </div>
 
-          {/* FILA 2: ROL IDENTIFICACIÓN (4+4+4 = 12) */}
-          <div className="md:col-span-4 space-y-1">
+          {/* FILA 2: IDENTIFICACIÓN TÉCNICA UNIFICADA (SII/DOM/EGIS) - (6+3+3 = 12) */}
+          <div className="md:col-span-6 space-y-1">
             <label className="text-[10px] font-bold text-blue-900 uppercase tracking-tight flex items-center gap-1">
-              ROL Avalúo (Manzana-Predio)
+              Verificación ROL (Cartografía Interna SII / DOM / EGIS)
               <Search className="w-3 h-3" />
             </label>
-            <div className="relative">
-              <input 
-                type="text" 
-                placeholder="Ej: 1234-56"
-                {...register("rol_sii")}
-                className="w-full h-10 px-3 bg-blue-50/30 border-2 border-blue-100 rounded-lg outline-none focus:border-blue-500 focus:bg-white text-sm font-black text-blue-900 placeholder:text-blue-200 transition-all"
-              />
-              <div className="absolute right-3 top-2.5 px-1.5 py-0.5 bg-blue-100 text-blue-700 text-[8px] font-bold rounded uppercase">SII</div>
-            </div>
-          </div>
-          <div className="md:col-span-4 space-y-1">
-            <label className="text-[10px] font-bold text-transparent select-none uppercase">Validación</label>
-            <button 
-              type="button"
-              onClick={() => {
-                const url = `https://www4.sii.cl/cartografiaui/`;
-                window.open(url, '_blank');
-              }}
-              className="w-full h-10 flex items-center justify-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-lg text-xs font-black uppercase tracking-widest hover:bg-black transition-all shadow-lg active:scale-[0.98]"
-            >
-              <Search className="w-3.5 h-3.5" />
-              Validar en Cartografía SII
-            </button>
-          </div>
-          <div className="md:col-span-4 self-center pt-4">
-            <div className="flex items-center gap-2 text-slate-400">
-              <div className="h-[1px] flex-1 bg-slate-100" />
-              <span className="text-[9px] font-bold uppercase tracking-widest">Identificación Oficial CIP</span>
-              <div className="h-[1px] flex-1 bg-slate-100" />
-            </div>
-          </div>
+            <div className="flex flex-col gap-2">
+              <div className="flex group">
+                <div className="relative flex-1">
+                  <input 
+                    type="text" 
+                    placeholder="Ej: 1234-56"
+                    {...register("rol_sii")}
+                    className="w-full h-10 px-3 bg-blue-50/20 border-2 border-blue-100/50 rounded-l-lg outline-none focus:border-blue-500 focus:bg-white text-sm font-black text-blue-900 placeholder:text-blue-200 transition-all border-r-0"
+                  />
+                  <div className="absolute right-3 top-2.5 px-1.5 py-0.5 bg-blue-100 text-blue-700 text-[8px] font-bold rounded uppercase">ROL</div>
+                </div>
+                <button 
+                  type="button"
+                  onClick={handleFetchNorms}
+                  disabled={isFetchingNorms || !commune}
+                  className="h-10 px-4 bg-slate-800 text-white rounded-r-lg text-[10px] font-black uppercase tracking-widest hover:bg-black transition-all shadow-md active:scale-95 flex items-center gap-2 border-2 border-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isFetchingNorms ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <MapPin className="w-3.5 h-3.5" />
+                  )}
+                  {isFetchingNorms ? "ESCANEANDO..." : "LOCALIZAR ROL"}
+                </button>
+              </div>
 
-          {/* FILA 3: DATOS TÉCNICOS Y SUPERFICIES (2+2+2+3+3 = 12) */}
-          <div className="md:col-span-2 space-y-1">
-            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-tight">Comuna</label>
-            <input 
-              type="text" 
-              placeholder="Comuna"
-              {...register("commune")}
-              className={`w-full h-10 px-3 border-2 rounded-lg outline-none focus:border-blue-500 text-sm font-medium bg-white ${errors.commune ? 'border-red-500' : 'border-slate-50'}`}
-            />
+              {/* Localización Result Overlay */}
+              <AnimatePresence>
+                {coordinates && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="flex items-center gap-3 p-2 bg-emerald-50 border border-emerald-100 rounded-lg"
+                  >
+                    <div className="w-12 h-12 bg-emerald-100 rounded flex items-center justify-center overflow-hidden border border-emerald-200 shadow-inner">
+                      <MapPin className="w-6 h-6 text-emerald-600 animate-pulse" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-[10px] font-black text-emerald-800 uppercase tracking-tighter flex items-center gap-1">
+                        <ShieldAlert className="w-3 h-3" />
+                        Verificado en Cartografía
+                      </p>
+                      <div className="flex gap-3 text-[9px] font-medium text-emerald-600">
+                        <span>Lat: {typeof coordinates?.lat === 'number' ? coordinates.lat.toFixed(6) : '---'}</span>
+                        <span>Lng: {typeof coordinates?.lng === 'number' ? coordinates.lng.toFixed(6) : '---'}</span>
+                      </div>
+                    </div>
+                    <button 
+                      type="button"
+                      onClick={() => window.open(`https://www.google.com/maps?q=${coordinates.lat},${coordinates.lng}`, '_blank')}
+                      className="p-1.5 bg-white border border-emerald-200 rounded text-emerald-600 hover:bg-emerald-600 hover:text-white transition-all shadow-sm"
+                      title="Abrir localización exacta"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           </div>
-          <div className="md:col-span-2 space-y-1">
-            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-tight">Tipo</label>
+          <div className="md:col-span-3 space-y-1">
+            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-tight">Tipo de Propiedad</label>
             <select 
               {...register("property_type")}
               className="w-full h-10 px-2 border-2 border-slate-50 rounded-lg outline-none focus:border-blue-500 text-sm font-medium bg-white appearance-none cursor-pointer"
@@ -762,8 +704,8 @@ export const ValuationForm: React.FC<Props> = ({ onSubmit, isLoading, isPRCModal
               {propertyTypes.map(t => <option key={t} value={t}>{t}</option>)}
             </select>
           </div>
-          <div className="md:col-span-2 space-y-1">
-            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-tight">Destino</label>
+          <div className="md:col-span-3 space-y-1">
+            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-tight">Destino SII</label>
             <select 
               {...register("property_usage")}
               className="w-full h-10 px-2 border-2 border-slate-50 rounded-lg outline-none focus:border-blue-500 text-sm font-medium bg-white appearance-none cursor-pointer"
@@ -771,7 +713,9 @@ export const ValuationForm: React.FC<Props> = ({ onSubmit, isLoading, isPRCModal
               {usageOptions.map(o => <option key={o} value={o}>{o}</option>)}
             </select>
           </div>
-          <div className="md:col-span-3 space-y-1">
+
+          {/* FILA 3: SUPERFICIES (6+6 = 12) */}
+          <div className="md:col-span-6 space-y-1">
             <label className="text-[10px] font-bold text-blue-900 uppercase tracking-tight bg-blue-50/50 px-2 py-0.5 rounded-t-md inline-block">Terreno m²</label>
             <div className="relative">
               <input 
@@ -782,7 +726,7 @@ export const ValuationForm: React.FC<Props> = ({ onSubmit, isLoading, isPRCModal
               <span className="absolute right-3 top-3 text-[10px] font-bold text-blue-300">m²</span>
             </div>
           </div>
-          <div className="md:col-span-3 space-y-1">
+          <div className="md:col-span-6 space-y-1">
             <label className="text-[10px] font-bold text-green-900 uppercase tracking-tight bg-green-50/50 px-2 py-0.5 rounded-t-md inline-block">Edificado m²</label>
             <div className="relative">
               <input 

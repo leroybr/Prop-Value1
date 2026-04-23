@@ -6,13 +6,11 @@ import { MarketStat } from '../types';
 interface LandingPageProps {
   setActiveTab: (tab: 'intro' | 'valuation' | 'projects') => void;
   marketStats: MarketStat[];
-  loadDemoValuation: () => void;
 }
 
 export const LandingPage: React.FC<LandingPageProps> = ({ 
   setActiveTab, 
-  marketStats, 
-  loadDemoValuation 
+  marketStats 
 }) => {
   return (
     <motion.div
@@ -159,12 +157,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 Mercado por Comuna
               </h3>
               <div className="space-y-3">
-                {marketStats.map(stat => (
-                  <div key={stat.commune} className="flex justify-between items-center p-2 hover:bg-gray-50 rounded-lg transition-colors">
+                {(marketStats || []).map(stat => (
+                  <div key={stat.commune} className="flex justify-between items-center p-2 hover:bg-gray-100 rounded-lg transition-colors">
                     <span className="text-sm font-medium">{stat.commune}</span>
                     <div className="text-right">
                       <div className="text-sm font-bold">{stat.avgPriceUF.toLocaleString()} UF</div>
-                      <div className={`text-xs ${stat.trend.startsWith('+') ? 'text-green-500' : 'text-red-500'}`}>
+                      <div className={`text-xs font-bold ${stat.trend.startsWith('+') ? 'text-green-500' : 'text-red-500'}`}>
                         {stat.trend}
                       </div>
                     </div>

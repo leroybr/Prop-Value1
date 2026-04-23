@@ -5,12 +5,7 @@ let aiInstance: GoogleGenAI | null = null;
 
 function getAi() {
   if (!aiInstance) {
-    // Buscamos la clave en todas las fuentes posibles (Vercel y AI Studio)
-    // Vite expondrá VITE_GEMINI_API_KEY automáticamente si existe.
-    // También la definimos en vite.config.ts para mayor seguridad.
-    const apiKey = import.meta.env.VITE_GEMINI_API_KEY || 
-                   (typeof process !== 'undefined' ? process.env.GEMINI_API_KEY : null) ||
-                   (typeof process !== 'undefined' ? process.env.VITE_GEMINI_API_KEY : null);
+    const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
     
     console.log("Verificando Clave Gemini:", apiKey ? "Detectada (OK)" : "No detectada (FALTA)");
 
@@ -61,6 +56,8 @@ export async function getRegulatoryData(
   max_height_isolated_over_continuous?: number;
   grouping?: string;
   retranqueo?: string;
+  latitude?: number;
+  longitude?: number;
   adosamiento?: string;
   distanciamiento?: string;
   antejardin?: string;
@@ -195,13 +192,15 @@ export async function getRegulatoryData(
     - condicion_incentivo: Condición para acceder al incentivo (string).
     - street_classification: The official classification of the main street (Troncal, Colectora, Servicio, Local).
     - corner_street_classification: The official classification of the corner street if applicable.
+    - latitude: The precise latitude of the property for internal mapping (number).
+    - longitude: The precise longitude of the property for internal mapping (number).
     
     Important: If you find multiple sub-zones, provide the data for the most restrictive or most common one in that specific sector.
   `;
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-3.1-pro-preview",
+      model: "gemini-1.5-pro",
       contents: prompt,
       config: {
         responseMimeType: "application/json",
@@ -224,6 +223,8 @@ export async function getRegulatoryData(
             surface_verification_notes: { type: Type.STRING },
             street_classification: { type: Type.STRING },
             corner_street_classification: { type: Type.STRING },
+            latitude: { type: Type.NUMBER },
+            longitude: { type: Type.NUMBER },
             min_lot_size: { type: Type.NUMBER },
             upper_floor_occupancy_coefficient: { type: Type.NUMBER },
             max_height_continuous: { type: Type.NUMBER },
@@ -237,7 +238,7 @@ export async function getRegulatoryData(
             incentivos: { type: Type.STRING },
             condicion_incentivo: { type: Type.STRING }
           },
-          required: ["zoning_code", "max_height", "constructability_index", "land_use_coefficient", "property_usage", "setback", "parking_quota", "recent_amendments", "occupancy_calculation", "constructability_calculation", "height_by_surface", "allowed_buildable_surface", "verified_land_surface", "surface_verification_notes", "min_lot_size", "upper_floor_occupancy_coefficient", "max_height_continuous", "max_depth_continuous", "max_height_isolated_over_continuous", "grouping", "retranqueo", "adosamiento", "distanciamiento", "antejardin", "incentivos", "condicion_incentivo"]
+          required: ["zoning_code", "max_height", "constructability_index", "land_use_coefficient", "property_usage", "setback", "parking_quota", "recent_amendments", "occupancy_calculation", "constructability_calculation", "height_by_surface", "allowed_buildable_surface", "verified_land_surface", "surface_verification_notes", "min_lot_size", "upper_floor_occupancy_coefficient", "max_height_continuous", "max_depth_continuous", "max_height_isolated_over_continuous", "grouping", "retranqueo", "adosamiento", "distanciamiento", "antejardin", "incentivos", "condicion_incentivo", "latitude", "longitude"]
         },
         tools: [
           { googleSearch: {} }
@@ -471,7 +472,7 @@ export async function estimatePropertyValue(data: PropertyData, ufValue: number)
   console.log("Iniciando tasación para:", data.commune);
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-3.1-pro-preview",
+      model: "gemini-1.5-pro",
       contents: prompt,
       config: {
         responseMimeType: "application/json",

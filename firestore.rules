@@ -3,164 +3,75 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     // ===============================================================
-    // Assumed Data Model
-    // ===============================================================
-    //
-    // Collection: users
-    // Document ID: {userId}
-    // Fields:
-    //   - uid: string (required)
-    //   - email: string (required, email format)
-    //   - displayName: string (optional)
-    //   - photoURL: string (optional)
-    //   - createdAt: timestamp (required)
-    //
-    // Collection: valuations
-    // Document ID: auto-generated
-    // Fields:
-    //   - userId: string (required)
-    //   - commune: string (required)
-    //   - rol_sii: string (optional)
-    //   - m2_useful: number (required)
-    //   - m2_total: number (required)
-    //   - bedrooms: number (required)
-    //   - bathrooms: number (required)
-    //   - parking: number (required)
-    //   - storage: number (required)
-    //   - year_built: number (optional)
-    //   - estimated_price_uf: number (required)
-    //   - estimated_price_clp: number (required)
-    //   - confidence_score: number (required)
-    //   - market_context: string (required)
-    //   - createdAt: timestamp (required)
-    //
+    // Global Helper Functions
     // ===============================================================
 
-    // ===============================================================
-    // Helper Functions
-    // ===============================================================
-
-    function isAuthenticated() {
+    function isSignedIn() {
       return request.auth != null;
     }
 
-    function isOwner(userId) {
-      return isAuthenticated() && request.auth.uid == userId;
-    }
-
+    // Admin check - Robust identification
     function isAdmin() {
-      return isAuthenticated() &&
-        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
-         (request.auth.token.email == "janiceleroy@gmail.com" && request.auth.token.email_verified == true));
+      return isSignedIn() && 
+             (request.auth.uid == "zVnYHORDdQTfJRWzeiAMKVsgoVz2" || 
+             (request.auth.token.email == "janiceleroy@gmail.com" && request.auth.token.email_verified == true));
     }
 
-    function hasRequiredFields(fields) {
-      return request.resource.data.keys().hasAll(fields);
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
     }
 
-    function hasOnlyAllowedFields(fields) {
-      return request.resource.data.keys().hasOnly(fields);
+    function incoming() {
+      return request.resource.data;
     }
 
-    function isValidEmail(email) {
-      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
-    }
-
-    function isValidUrl(url) {
-      return url is string && (url.matches("^https://.*") || url.matches("^http://.*"));
+    function existing() {
+      return resource.data;
     }
 
     // ===============================================================
-    // Domain Validators
+    // Entity Validators
     // ===============================================================
-
-    function isValidUser(data) {
-      return hasRequiredFields(['uid', 'email', 'createdAt']) &&
-             data.uid == request.auth.uid &&
-             isValidEmail(data.email) &&
-             data.createdAt is timestamp &&
-             (!('displayName' in data) || data.displayName == null || (data.displayName is string && data.displayName.size() < 100)) &&
-             (!('photoURL' in data) || data.photoURL == null || isValidUrl(data.photoURL));
-    }
 
     function isValidValuation(data) {
-      return hasRequiredFields(['userId', 'commune', 'estimated_price_uf', 'createdAt']) &&
+      return data.keys().hasAll(['userId', 'commune', 'estimated_price_uf', 'createdAt']) &&
              data.userId == request.auth.uid &&
              data.commune is string && data.commune.size() < 100 &&
-             data.estimated_price_uf is number && data.estimated_price_uf > 0 &&
-             data.createdAt is timestamp &&
-             (!('client_name' in data) || (data.client_name is string && data.client_name.size() < 200)) &&
-             (!('property_type' in data) || (data.property_type is string)) &&
-             (!('address_street' in data) || (data.address_street is string && data.address_street.size() < 300)) &&
-             (!('address_number' in data) || (data.address_number is string && data.address_number.size() < 50)) &&
-             (!('rol_sii' in data) || (data.rol_sii is string && data.rol_sii.size() < 50)) &&
-             (!('avaluo_fiscal' in data) || (data.avaluo_fiscal is number && data.avaluo_fiscal >= 0)) &&
-             (!('m2_useful' in data) || (data.m2_useful is number && data.m2_useful >= 0)) &&
-             data.m2_total is number && data.m2_total > 0 &&
-             (!('bedrooms' in data) || (data.bedrooms is number && data.bedrooms >= 0)) &&
-             (!('bathrooms' in data) || (data.bathrooms is number && data.bathrooms >= 0)) &&
-             (!('parking' in data) || (data.parking is number && data.parking >= 0)) &&
-             (!('storage' in data) || (data.storage is number && data.storage >= 0)) &&
-             (!('year_built' in data) || (data.year_built is number)) &&
-             (!('gis_reference_id' in data) || (data.gis_reference_id is string)) &&
-             (!('is_corner' in data) || (data.is_corner is bool)) &&
-             data.estimated_price_clp is number && data.estimated_price_clp > 0 &&
-             data.confidence_score is number && data.confidence_score >= 0 && data.confidence_score <= 1 &&
-             data.market_context is string && data.market_context.size() < 10000;
-    }
-
-    function isValidProject(data) {
-      return hasRequiredFields(['name', 'region', 'commune', 'status']) &&
-             data.name is string && data.name.size() < 200 &&
-             data.region in ['Biobío', 'Metropolitana'] &&
-             data.commune is string && data.commune.size() < 100 &&
-             data.status is string && data.status.size() < 50 &&
-             (!('developer' in data) || (data.developer is string && data.developer.size() < 200)) &&
-             (!('address' in data) || (data.address is string && data.address.size() < 300)) &&
-             (!('floors' in data) || (data.floors is number && data.floors >= 0)) &&
-             (!('total_units' in data) || (data.total_units is number && data.total_units >= 0)) &&
-             (!('avg_price_uf_m2' in data) || (data.avg_price_uf_m2 is number && data.avg_price_uf_m2 >= 0)) &&
-             (!('amenities' in data) || (data.amenities is list && data.amenities.size() <= 20)) &&
-             (!('sustainability_features' in data) || (data.sustainability_features is list && data.sustainability_features.size() <= 20)) &&
-             (!('coordinates' in data) || (data.coordinates is map && 
-                                          data.coordinates.lat is number && 
-                                          data.coordinates.lng is number));
+             data.estimated_price_uf is number &&
+             data.createdAt == request.time;
     }
 
     // ===============================================================
-    // Rules
+    // Collection Matches
     // ===============================================================
 
+    // Public Collections
     match /projects/{projectId} {
-      // Projects are public for reading, but only admins can write
+      // Permitir lectura pública de proyectos (get y list)
       allow read: if true;
+      // Solo administradores pueden crear o editar proyectos
       allow write: if isAdmin();
     }
 
-    match /projects/{document=**} {
-      allow read: if true;
-      allow write: if isAdmin();
-    }
-
+    // User Private Collections
     match /users/{userId} {
-      allow read: if isOwner(userId) || isAdmin();
-      allow create: if isOwner(userId) && isValidUser(request.resource.data);
-      allow update: if isOwner(userId) && isValidUser(request.resource.data) && 
-                      request.resource.data.uid == resource.data.uid &&
-                      request.resource.data.createdAt == resource.data.createdAt;
-      allow delete: if isAdmin();
+      allow read, write: if isSignedIn() && (request.auth.uid == userId || isAdmin());
     }
 
     match /valuations/{valuationId} {
-      // Valuations are private to the user or accessible by admin
-      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
-      allow create: if isAuthenticated() && isValidValuation(request.resource.data);
-      allow update: if false; // Valuations are immutable for now
-      allow delete: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      // Secure list query enabled via resource.data.userId check
+      // Optimizamos para no requerir índices compuestos en la mayoría de los casos
+      allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      
+      // Permitir creación si está logueado y es el dueño
+      allow create: if isSignedIn() && incoming().userId == request.auth.uid;
+      
+      // Solo administradores pueden actualizar o borrar
+      allow update, delete: if isAdmin();
     }
 
-    // Default deny
-    match /{path=**} {
+    // Default Deny Catch-All (SIEMPRE AL FINAL)
+    match /{document=**} {
       allow read, write: if false;
     }
   }

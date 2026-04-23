@@ -41,8 +41,12 @@ export const FirebaseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             
             await setDoc(userRef, userData);
           }
-        } catch (error) {
-          console.error("Error syncing user profile:", error);
+        } catch (error: any) {
+          if (!error.message?.includes('offline')) {
+            console.error("Error syncing user profile:", error);
+          } else {
+            console.warn("Profile sync postponed: Client is currently offline.");
+          }
           // Don't throw here to avoid blocking the app, but log it
         }
       }
@@ -59,18 +63,23 @@ export const FirebaseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     setAuthActionLoading(true);
     setError(null);
     try {
+      console.log("Initiating Google Login...");
       await loginWithGoogle();
+      console.log("Login successful");
     } catch (error: any) {
-      console.error("Login failed:", error);
+      console.error("DEBUG - Login Error Code:", error.code);
+      console.error("DEBUG - Login Error Message:", error.message);
+      
       if (error.code === 'auth/popup-blocked') {
         setError("El navegador bloqueó la ventana de inicio de sesión. Por favor, permite las ventanas emergentes (popups) para este sitio.");
       } else if (error.code === 'auth/cancelled-popup-request') {
-        // Silently ignore or log - usually means user closed the window or clicked twice
-        console.warn("Popup request cancelled or another one was pending.");
-      } else if (error.message?.includes('INTERNAL ASSERTION FAILED')) {
-        setError("Hubo un error interno en la conexión con Google. Por favor, refresca la página e intenta de nuevo.");
+        console.warn("Popup request cancelled.");
+      } else if (error.code === 'auth/unauthorized-domain') {
+        setError("Error de configuración: Este dominio no está autorizado en la consola de Firebase. Debes agregar '" + window.location.hostname + "' a los dominios autorizados.");
+      } else if (error.code === 'auth/operation-not-allowed') {
+        setError("Error de configuración: El proveedor de Google no está habilitado en tu consola de Firebase.");
       } else {
-        setError("No se pudo iniciar sesión: " + (error.message || "Error desconocido"));
+        setError("Error (" + error.code + "): " + (error.message || "Error desconocido"));
       }
     } finally {
       setAuthActionLoading(false);

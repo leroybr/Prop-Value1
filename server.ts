@@ -35,21 +35,14 @@ app.get("/api/health", (req, res) => {
   res.json({ status: "ok", market: "Chile", currency: "UF" });
 });
 
-// Mock Market Data API
+// Mock Market Data API - Clear for production deployment
 app.get("/api/market-stats", (req, res) => {
-  res.json([
-    { commune: "Concepción", avgPriceUF: 4500, trend: "+1.5%" },
-    { commune: "San Pedro de la Paz", avgPriceUF: 5200, trend: "+2.1%" },
-    { commune: "Talcahuano", avgPriceUF: 3100, trend: "+0.8%" },
-    { commune: "Chiguayante", avgPriceUF: 3800, trend: "+1.2%" },
-    { commune: "Las Condes", avgPriceUF: 12500, trend: "+2.4%" },
-    { commune: "Vitacura", avgPriceUF: 15800, trend: "+1.2%" },
-  ]);
+  res.json([]);
 });
 
 // Proxy for UF value to avoid CORS
 app.get("/api/uf", async (req, res) => {
-  const FALLBACK_UF = 38650; // Updated fallback for 2024/2025
+  const FALLBACK_UF = 37350; // Valor actualizado mayo 2024
   
   try {
     console.log("Fetching UF from mindicador...");

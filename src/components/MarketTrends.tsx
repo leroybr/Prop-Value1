@@ -2,38 +2,10 @@ import React from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 const data: Record<string, any[]> = {
-  'Concepción': [
-    { month: 'Oct', price: 62 },
-    { month: 'Nov', price: 63.5 },
-    { month: 'Dic', price: 63 },
-    { month: 'Ene', price: 64.5 },
-    { month: 'Feb', price: 66 },
-    { month: 'Mar', price: 65.5 },
-  ],
-  'San Pedro': [
-    { month: 'Oct', price: 54 },
-    { month: 'Nov', price: 55.5 },
-    { month: 'Dic', price: 55 },
-    { month: 'Ene', price: 56.5 },
-    { month: 'Feb', price: 58 },
-    { month: 'Mar', price: 57.5 },
-  ],
-  'Talcahuano': [
-    { month: 'Oct', price: 44 },
-    { month: 'Nov', price: 45.5 },
-    { month: 'Dic', price: 45 },
-    { month: 'Ene', price: 46.5 },
-    { month: 'Feb', price: 48 },
-    { month: 'Mar', price: 47.5 },
-  ],
-  'Metropolitana': [
-    { month: 'Oct', price: 82 },
-    { month: 'Nov', price: 83.5 },
-    { month: 'Dic', price: 83 },
-    { month: 'Ene', price: 84.5 },
-    { month: 'Feb', price: 86 },
-    { month: 'Mar', price: 85.5 },
-  ]
+  'Concepción': [],
+  'San Pedro': [],
+  'Talcahuano': [],
+  'Santiago': []
 };
 
 export const MarketTrends: React.FC = () => {

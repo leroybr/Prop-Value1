@@ -8,8 +8,7 @@ import { LandingPage } from './components/LandingPage';
 import { PropertyData, ValuationResult, MarketStat, Project } from './types';
 import { estimatePropertyValue } from './services/geminiService';
 import { useFirebase } from './components/FirebaseProvider';
-import { db, handleFirestoreError, OperationType } from './firebase';
-import { collection, addDoc, query, where, orderBy, limit, onSnapshot, serverTimestamp } from 'firebase/firestore';
+import { db, handleFirestoreError, OperationType, collection, addDoc, query, where, orderBy, limit, onSnapshot, serverTimestamp } from './firebase';
 import { Building2, TrendingUp, MapPin, Calculator, Info, LogOut, LogIn, Download, FileText, X, CheckCircle2, Map as MapIcon, History, Layout, Settings, Sparkles, ExternalLink, ShieldAlert, Scale, Calendar, Instagram, Link as LinkIcon, RefreshCw, Menu } from 'lucide-react';
 import { PRCViewerModal } from './components/PRCViewerModal';
 import jsPDF from 'jspdf';
@@ -20,7 +19,7 @@ export default function App() {
   const [valuation, setValuation] = useState<ValuationResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [marketStats, setMarketStats] = useState<MarketStat[]>([]);
-  const [ufValue, setUfValue] = useState(38500); // Fallback value
+  const [ufValue, setUfValue] = useState(37350); // Fallback value
   const [history, setHistory] = useState<ValuationResult[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [activeTab, setActiveTab] = useState<'intro' | 'valuation' | 'projects'>('intro');
@@ -97,260 +96,48 @@ export default function App() {
 
   // Sync projects from Firestore
   useEffect(() => {
-    const q = query(collection(db, 'projects'), limit(20));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const projectList = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as unknown as Project[];
-      setProjects(projectList);
-      
-      // Seed mock data if empty and user is admin
-      if (projectList.length === 0 && user?.email === "janiceleroy@gmail.com") {
-        seedMockProjects();
-      }
-    }, (error) => {
-      // Don't crash for project listing, just log
-      console.error("Error fetching projects:", error);
-    });
-    return () => unsubscribe();
-  }, []);
-
-  const seedMockProjects = async () => {
-    try {
-      const mockProjects: Partial<Project>[] = [
-      {
-        name: "Edificio Biobío Central",
-        developer: "Inmobiliaria Sur",
-        property_type: 'Departamento',
-        region: "Biobío",
-        commune: "Concepción",
-        sector: "Centro",
-        zoning_code: "ZH-1",
-        address: "Av. Chacabuco 1234",
-        status: "En Venta",
-        floors: 15,
-        total_units: 120,
-        amenities: ["Piscina", "Quincho", "Gimnasio"],
-        sustainability_features: ["Paneles Solares", "Aislación Térmica"],
-        avg_price_uf_m2: 65,
-        coordinates: { lat: -36.827, lng: -73.050 }
-      },
-      {
-        name: "Edificio Parque Ecuador",
-        developer: "Inmobiliaria Concepción",
-        property_type: 'Departamento',
-        region: "Biobío",
-        commune: "Concepción",
-        sector: "Parque Ecuador",
-        zoning_code: "ZH-2",
-        address: "Víctor Lamas 1050",
-        status: "Entrega Inmediata",
-        floors: 12,
-        total_units: 85,
-        amenities: ["Gimnasio", "Sala de Cine", "Lavandería"],
-        sustainability_features: ["Reciclaje de Aguas Grises"],
-        avg_price_uf_m2: 72,
-        coordinates: { lat: -36.833, lng: -73.045 }
-      },
-      {
-        name: "Torre Santiago Oriente",
-        developer: "Inmobiliaria Capital",
-        property_type: 'Departamento',
-        region: "Metropolitana",
-        commune: "Las Condes",
-        sector: "El Golf",
-        zoning_code: "UC-1",
-        address: "Av. Apoquindo 5678",
-        status: "Entrega Inmediata",
-        floors: 22,
-        total_units: 180,
-        amenities: ["Piscina Panorámica", "Cowork", "Lavandería"],
-        sustainability_features: ["Certificación LEED", "Puntos de Reciclaje"],
-        avg_price_uf_m2: 95,
-        coordinates: { lat: -33.412, lng: -70.566 }
-      },
-      {
-        name: "Residencial San Pedro",
-        developer: "Inmobiliaria del Mar",
-        property_type: 'Departamento',
-        region: "Biobío",
-        commune: "San Pedro de la Paz",
-        sector: "Andalué",
-        zoning_code: "ZH-3",
-        address: "Av. Michimalonco 450",
-        status: "En Verde",
-        floors: 12,
-        total_units: 90,
-        amenities: ["Piscina", "Juegos Infantiles", "Club House"],
-        sustainability_features: ["Eficiencia Energética", "Riego Automático"],
-        avg_price_uf_m2: 58,
-        coordinates: { lat: -36.845, lng: -73.065 }
-      },
-      {
-        name: "Condominio Huertos Familiares",
-        developer: "Inmobiliaria Los Huertos",
-        property_type: 'Casa',
-        region: "Biobío",
-        commune: "San Pedro de la Paz",
-        sector: "Huertos Familiares",
-        zoning_code: "ZH-4",
-        address: "Los Canelos 1200",
-        status: "En Venta",
-        floors: 5,
-        total_units: 40,
-        amenities: ["Quincho", "Áreas Verdes", "Seguridad 24/7"],
-        sustainability_features: ["Iluminación LED", "Aislación Térmica"],
-        avg_price_uf_m2: 62,
-        coordinates: { lat: -36.852, lng: -73.078 }
-      },
-      {
-        name: "Edificio Ñuñoa Life",
-        developer: "Inmobiliaria Urbana",
-        property_type: 'Departamento',
-        region: "Metropolitana",
-        commune: "Ñuñoa",
-        sector: "Plaza Ñuñoa",
-        zoning_code: "ZH-5",
-        address: "Av. Irarrázaval 2345",
-        status: "En Venta",
-        floors: 18,
-        total_units: 150,
-        amenities: ["Piscina", "Quincho", "Sala Multiuso"],
-        sustainability_features: ["Ventanas Termopanel", "Reciclaje"],
-        avg_price_uf_m2: 78,
-        coordinates: { lat: -33.454, lng: -70.601 }
-      },
-      {
-        name: "Sitio Industrial Lomas",
-        developer: "Lomas Land",
-        property_type: 'Sitio Eriazo',
-        region: "Biobío",
-        commune: "Concepción",
-        sector: "Lomas de San Sebastián",
-        zoning_code: "ZE-1",
-        address: "Av. Jorge Alessandri s/n",
-        status: "En Venta",
-        floors: 0,
-        total_units: 1,
-        amenities: [],
-        sustainability_features: [],
-        avg_price_uf_m2: 12,
-        coordinates: { lat: -36.795, lng: -73.040 }
-      },
-      {
-        name: "Condominio Brisas del Sol",
-        developer: "Inmobiliaria Talcahuano",
-        property_type: 'Departamento',
-        region: "Biobío",
-        commune: "Talcahuano",
-        sector: "Brisas del Sol",
-        zoning_code: "ZH-5",
-        address: "Av. Jorge Alessandri 1234",
-        status: "En Venta",
-        floors: 8,
-        total_units: 60,
-        amenities: ["Piscina", "Gimnasio", "Sala Multiuso"],
-        sustainability_features: ["Eficiencia Energética"],
-        avg_price_uf_m2: 52,
-        coordinates: { lat: -36.782, lng: -73.061 }
-      }
-    ];
-
-    for (const p of mockProjects) {
-      await addDoc(collection(db, 'projects'), p);
-    }
-    } catch (error) {
-      console.error("Error seeding projects:", error);
-    }
-  };
-
-  // Sync valuations from Firestore
-  useEffect(() => {
+    let unsubscribe: () => void;
+    
     if (!user) {
-      setHistory([]);
+      setProjects([]);
+      return;
+    }
+    
+    try {
+      const q = query(collection(db, 'projects'), limit(50));
+      unsubscribe = onSnapshot(q, (snapshot) => {
+        try {
+          const projectList = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          })) as unknown as Project[];
+          
+          setProjects(projectList);
+        } catch (innerError) {
+          console.error("Error processing projects snapshot:", innerError);
+        }
+      }, (error: any) => {
+        if (!error.message?.includes('offline')) {
+          handleFirestoreError(error, OperationType.LIST, 'projects');
+        }
+      });
+    } catch (outerError) {
+      console.error("Error setting up projects subscription:", outerError);
       return;
     }
 
-    const q = query(
-      collection(db, 'valuations'),
-      where('userId', '==', user.uid),
-      limit(20) // Increased limit since we sort client-side
-    );
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const valuations = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as unknown as ValuationResult[];
-      
-      // Sort client-side to avoid requiring a composite index (userId + createdAt)
-      // which often causes "FAILED_PRECONDITION" errors for new users
-      const sortedValuations = [...valuations].sort((a, b) => {
-        const dateA = (a.createdAt as any)?.seconds || 0;
-        const dateB = (b.createdAt as any)?.seconds || 0;
-        return dateB - dateA;
-      });
-      
-      setHistory(sortedValuations);
-    }, (error) => {
-      try {
-        handleFirestoreError(error, OperationType.LIST, 'valuations');
-      } catch (e: any) {
-        setFirestoreError(e);
-      }
-    });
-
-    return () => unsubscribe();
-  }, [user]);
-
-  const loadDemoValuation = () => {
-    const mockValuation: ValuationResult = {
-      estimated_price_uf: 5250,
-      estimated_price_clp: Math.round(5250 * ufValue),
-      confidence_score: 0.94,
-      market_context: "Propiedad de ejemplo ubicada en sector consolidado de Las Condes. El valor refleja una excelente conservación, orientación oriente y cercanía a servicios premium. Se considera un factor de plusvalía del 4.5% anual para el sector.",
-      regulatory_analysis: {
-        compliance_score: 1.0,
-        is_consistent: true,
-        observations: "Los parámetros de altura (15 pisos) y constructibilidad (2.5) son plenamente consistentes con la zona UC-1 del Plano Regulador de Las Condes para el sector El Golf."
-      },
-      comparables: [
-        { price_uf: 5400, m2: 75, distance_km: 0.2, source: "Venta Reciente CBRS - El Golf" },
-        { price_uf: 5150, m2: 72, distance_km: 0.4, source: "Portal Inmobiliario - Depto Similar" },
-        { price_uf: 5300, m2: 78, distance_km: 0.6, source: "TocToc - Oferta Competitiva" }
-      ],
-      property_data: {
-        valuation_type: 'professional',
-        property_type: 'Departamento',
-        commune: 'Las Condes',
-        sector: 'El Golf',
-        m2_total: 85,
-        m2_useful: 78,
-        bedrooms: 2,
-        bathrooms: 2,
-        client_name: 'Particular (Demo)'
-      }
+    return () => {
+      if (unsubscribe) unsubscribe();
     };
-    setValuation(mockValuation);
-    setShowReport(true);
-  };
+  }, [user]);
 
   const handleValuation = async (data: PropertyData) => {
     console.log("handleValuation called with data:", data);
     
-    const apiKey = import.meta.env.VITE_GEMINI_API_KEY || 
-                   (typeof process !== 'undefined' ? process.env.GEMINI_API_KEY : null) ||
-                   (window as any).process?.env?.GEMINI_API_KEY;
+    const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
 
     if (!apiKey || apiKey === "undefined") {
       setAppError("Error: No se ha configurado la clave de API de Gemini. Si estás en Vercel, agrégala como VITE_GEMINI_API_KEY y haz un 'Redeploy'.");
-      return;
-    }
-
-    if (!user) {
-      console.warn("User not logged in, cannot perform valuation");
-      setAppError("Por favor, inicia sesión para realizar una tasación.");
       return;
     }
 
@@ -370,18 +157,29 @@ export default function App() {
       ]) as ValuationResult;
 
       console.log("estimatePropertyValue success, result:", result);
-      setValuation(result);
+      
+      // Merge input data with result to ensure property_data is present
+      const finalResult = {
+        ...result,
+        property_data: data
+      };
+      
+      setValuation(finalResult);
       setShowReport(true);
       
-      // Save to Firestore
-      console.log("Saving valuation to Firestore...");
-      await addDoc(collection(db, 'valuations'), {
-        ...data,
-        ...result,
-        userId: user.uid,
-        createdAt: serverTimestamp(),
-      });
-      console.log("Valuation saved successfully to Firestore");
+      // Save to Firestore ONLY if user is logged in
+      if (user) {
+        console.log("Saving valuation to Firestore...");
+        await addDoc(collection(db, 'valuations'), {
+          ...data,
+          ...result,
+          userId: user.uid,
+          createdAt: serverTimestamp(),
+        });
+        console.log("Valuation saved successfully to Firestore");
+      } else {
+        console.log("User not logged in, skipping Firestore save.");
+      }
     } catch (error) {
       console.error("Valuation error caught in App.tsx:", error);
       if (error instanceof Error && error.message === "TIMEOUT") {
@@ -469,15 +267,96 @@ export default function App() {
     window.print();
   };
 
-  if (showSplash) {
-    return (
-      <motion.div 
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="fixed inset-0 z-[100] bg-white flex flex-col items-center justify-center cursor-pointer"
-        onClick={() => setShowSplash(false)}
-      >
+  // Main render logic
+  return (
+    <div className="min-h-screen bg-gray-50 text-gray-900 font-sans" translate="no">
+      {/* Global Status/Error Banners - Always visible atop everything */}
+      <div className="fixed top-0 left-0 right-0 z-[110] pointer-events-none">
+        <div className="pointer-events-auto">
+          {(appError || firebaseError) && (
+            <div className="bg-red-600 text-white px-4 py-2 text-center text-xs font-bold shadow-lg flex items-center justify-center gap-2">
+              <ShieldAlert className="w-4 h-4" />
+              <span>{String(appError || firebaseError)}</span>
+              <button 
+                onClick={() => { setAppError(null); setFirebaseError(null); }}
+                className="ml-4 bg-white/20 px-2 py-1 rounded hover:bg-white/30 text-[10px]"
+              >
+                Cerrar
+              </button>
+            </div>
+          )}
+
+          {firestoreError && (
+            <div className="bg-amber-600 text-white px-4 py-2 text-center text-xs font-bold shadow-lg flex flex-col items-center justify-center gap-1">
+              <div className="flex items-center gap-2">
+                <Info className="w-4 h-4" />
+                <span>Error de Base de Datos</span>
+                <button 
+                  onClick={() => setFirestoreError(null)}
+                  className="ml-4 bg-white/20 px-2 py-1 rounded hover:bg-white/30 text-[10px]"
+                >
+                  Ignorar
+                </button>
+              </div>
+              <p className="text-[10px] opacity-90 font-mono max-w-2xl truncate px-4">
+                {(() => {
+                  if (!firestoreError?.message) return "Error desconocido";
+                  try {
+                    const parsed = JSON.parse(firestoreError.message);
+                    const isOffline = parsed.error?.toLowerCase().includes('offline');
+                    return (
+                      <div className="flex flex-col items-center">
+                        <span>{parsed.operationType?.toUpperCase() || 'ERROR'} en {parsed.path || 'ruta'}: {parsed.error || 'Mensaje no disponible'}</span>
+                        {isOffline && (
+                          <div className="mt-2 flex flex-col items-center gap-1">
+                            <span className="text-amber-200 animate-pulse">
+                              Tip: Asegúrate de que la base de datos (default) esté activa en tu consola.
+                            </span>
+                            <a 
+                              href={`https://console.firebase.google.com/project/gen-lang-client-0280785590/firestore`}
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="mt-1 px-3 py-1 bg-white text-amber-700 rounded-full font-black uppercase text-[9px] hover:bg-amber-50 transition-colors shadow-sm"
+                            >
+                              Abrir Consola de Firebase →
+                            </a>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  } catch (e) {
+                    return firestoreError.message;
+                  }
+                })()}
+              </p>
+            </div>
+          )}
+
+          {apiKeyError && (
+            <div className="bg-red-600 text-white px-4 py-2 text-center text-xs font-bold shadow-lg flex items-center justify-center gap-2">
+              <Info className="w-4 h-4" />
+              <span>{apiKeyError}</span>
+              <button 
+                onClick={() => window.open('https://vercel.com/dashboard', '_blank')}
+                className="underline hover:text-white/80 ml-2"
+              >
+                Configurar
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <AnimatePresence mode="wait">
+        {showSplash ? (
+          <motion.div 
+            key="splash-screen"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] bg-white flex flex-col items-center justify-center cursor-pointer"
+            onClick={() => setShowSplash(false)}
+          >
         <motion.div 
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
@@ -531,65 +410,14 @@ export default function App() {
           </motion.div>
         </motion.div>
       </motion.div>
-    );
-  }
-
-  return (
-    <div className="min-h-screen bg-gray-50 text-gray-900 font-sans">
-      {/* App Error Banner */}
-      {(appError || firebaseError) && (
-        <div className="bg-red-600 text-white px-4 py-2 text-center text-xs font-bold sticky top-0 z-[60] shadow-lg flex items-center justify-center gap-2">
-          <Info className="w-4 h-4" />
-          {appError || firebaseError}
-          <button 
-            onClick={() => { setAppError(null); setFirebaseError(null); }}
-            className="ml-4 bg-white/20 px-2 py-1 rounded hover:bg-white/30 text-[10px]"
-          >
-            Cerrar
-          </button>
-        </div>
-      )}
-
-      {/* Firestore Error Banner */}
-      {firestoreError && (
-        <div className="bg-amber-600 text-white px-4 py-2 text-center text-xs font-bold sticky top-0 z-[60] shadow-lg flex flex-col items-center justify-center gap-1">
-          <div className="flex items-center gap-2">
-            <Info className="w-4 h-4" />
-            Hubo un problema con la base de datos.
-            <button 
-              onClick={() => setFirestoreError(null)}
-              className="ml-4 bg-white/20 px-2 py-1 rounded hover:bg-white/30 text-[10px]"
-            >
-              Ignorar
-            </button>
-          </div>
-          <p className="text-[10px] opacity-90 font-mono max-w-2xl truncate">
-            {(() => {
-              try {
-                const parsed = JSON.parse(firestoreError.message);
-                return `${parsed.operationType.toUpperCase()} error on ${parsed.path}: ${parsed.error}`;
-              } catch (e) {
-                return firestoreError.message;
-              }
-            })()}
-          </p>
-        </div>
-      )}
-
-      {/* API Key Error Banner */}
-      {apiKeyError && (
-        <div className="bg-red-600 text-white px-4 py-2 text-center text-xs font-bold sticky top-0 z-[60] shadow-lg flex items-center justify-center gap-2">
-          <Info className="w-4 h-4" />
-          {apiKeyError}
-          <button 
-            onClick={() => window.open('https://vercel.com/dashboard', '_blank')}
-            className="underline hover:text-white/80"
-          >
-            Configurar en Vercel
-          </button>
-        </div>
-      )}
-
+    ) : (
+      <motion.div
+        key="app-content"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="flex flex-col min-h-screen"
+      >
       {/* Loading Overlay */}
       <AnimatePresence>
         {isLoading && (
@@ -650,6 +478,13 @@ export default function App() {
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center gap-6 text-sm font-medium text-gray-600">
+            {firebaseError && (
+              <div className="flex items-center gap-2 bg-red-50 text-red-600 px-3 py-1.5 rounded-lg text-xs animate-shake">
+                <ShieldAlert className="w-3.5 h-3.5" />
+                <span>{firebaseError}</span>
+                <button onClick={() => setFirebaseError(null)} className="ml-1 hover:text-red-800"><X className="w-3 h-3" /></button>
+              </div>
+            )}
             <button 
               onClick={() => setActiveTab('intro')}
               className={`flex flex-col items-center hover:text-blue-600 transition-colors ${activeTab === 'intro' ? 'text-blue-600 border-b-2 border-blue-600' : ''}`}
@@ -831,7 +666,6 @@ export default function App() {
           <LandingPage 
             setActiveTab={setActiveTab}
             marketStats={marketStats}
-            loadDemoValuation={loadDemoValuation}
           />
         )}
 
@@ -846,27 +680,12 @@ export default function App() {
           >
             {/* Form Section - Full Width */}
             <section id="valuation-form" className="w-full bg-white border-b border-gray-100">
-              {user ? (
-                <ValuationForm 
-                  onSubmit={handleValuation} 
-                  isLoading={isLoading} 
-                  isPRCModalOpen={isPRCModalOpen}
-                  setIsPRCModalOpen={setIsPRCModalOpen}
-                />
-              ) : (
-                <div className="max-w-7xl mx-auto px-6 py-12">
-                  <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-100 text-center max-w-2xl mx-auto">
-                    <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <LogIn className="w-8 h-8" />
-                    </div>
-                    <h3 className="text-xl font-bold mb-2">Inicia Sesión</h3>
-                    <p className="text-gray-600 mb-6 text-sm">Debes ingresar para realizar tasaciones y guardar tu historial.</p>
-                    <button onClick={login} className="w-full bg-blue-600 text-white font-semibold py-1.5 rounded-md hover:bg-blue-700 transition-colors">
-                      Ingresar con Google
-                    </button>
-                  </div>
-                </div>
-              )}
+              <ValuationForm 
+                onSubmit={handleValuation} 
+                isLoading={isLoading} 
+                isPRCModalOpen={isPRCModalOpen}
+                setIsPRCModalOpen={setIsPRCModalOpen}
+              />
             </section>
 
             <main className="max-w-7xl mx-auto px-6 py-8">
@@ -944,22 +763,22 @@ export default function App() {
                         Tasaciones Recientes
                       </h2>
                       <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
-                        {history.length === 0 ? (
+                        {(history || []).length === 0 ? (
                           <p className="text-gray-500 text-sm italic">No hay registros recientes.</p>
                         ) : (
-                          history.map((item, idx) => (
-                            <div key={item.id || `hist-${idx}-${item.createdAt?.seconds}`} className="flex justify-between items-center p-3 bg-gray-50 rounded-md border border-gray-100 hover:bg-gray-100 transition-colors">
+                          (history || []).map((item, idx) => (
+                            <div key={item?.id || `hist-${idx}-${item?.createdAt?.seconds}`} className="flex justify-between items-center p-3 bg-gray-50 rounded-md border border-gray-100 hover:bg-gray-100 transition-colors">
                               <div className="flex items-center gap-3">
                                 <div className="bg-blue-100 p-2 rounded-lg">
                                   <FileText className="w-4 h-4 text-blue-600" />
                                 </div>
                                 <div>
-                                  <p className="font-medium text-gray-800 text-sm">{(item.estimated_price_uf || 0).toLocaleString()} UF</p>
-                                  <p className="text-[10px] text-gray-500">Confianza: {(item.confidence_score ? item.confidence_score * 100 : 0).toFixed(0)}%</p>
+                                  <p className="font-medium text-gray-800 text-sm">{(item?.estimated_price_uf || 0).toLocaleString()} UF</p>
+                                  <p className="text-[10px] text-gray-500">Confianza: {(item?.confidence_score ? item.confidence_score * 100 : 0).toFixed(0)}%</p>
                                 </div>
                               </div>
                               <div className="text-right">
-                                <p className="text-xs text-blue-600 font-bold">${((item.estimated_price_clp || 0) / 1000000).toFixed(1)}M</p>
+                                <p className="text-xs text-blue-600 font-bold">${((item?.estimated_price_clp || 0) / 1000000).toFixed(1)}M</p>
                               </div>
                             </div>
                           ))
@@ -994,6 +813,10 @@ export default function App() {
         <p className="mt-1">Datos procesados de SII, CBRS y Portales Inmobiliarios.</p>
       </footer>
 
+    </motion.div>
+  )}
+</AnimatePresence>
+
       {/* Report Modal - "Hoja Nueva" */}
       <AnimatePresence>
         {showReport && valuation && (
@@ -1026,7 +849,7 @@ export default function App() {
                   <button 
                     onClick={() => {
                       if (!valuation) return;
-                      const text = `Hola, envío tasación de Prop-Value Chile para la propiedad en ${valuation.property_data?.commune}. Valor estimado: ${valuation.estimated_price_uf.toLocaleString()} UF.`;
+                      const text = `Hola, envío tasación de Prop-Value Chile para la propiedad en ${valuation.property_data?.commune}. Valor estimado: ${(valuation.estimated_price_uf || 0).toLocaleString()} UF.`;
                       const phone = valuation.property_data?.client_phone?.replace(/\D/g, '') || '';
                       window.open(`https://wa.me/${phone}?text=${encodeURIComponent(text)}`, '_blank');
                     }}
@@ -1041,7 +864,7 @@ export default function App() {
                     onClick={() => {
                       if (!valuation) return;
                       const subject = `Tasación Prop-Value Chile - ${valuation.property_data?.commune}`;
-                      const body = `Hola, adjunto los detalles de la tasación realizada en Prop-Value Chile.\n\nValor Estimado: ${valuation.estimated_price_uf.toLocaleString()} UF\nComuna: ${valuation.property_data?.commune}\n\nPuedes ver más detalles en el informe adjunto.`;
+                      const body = `Hola, adjunto los detalles de la tasación realizada en Prop-Value Chile.\n\nValor Estimado: ${(valuation.estimated_price_uf || 0).toLocaleString()} UF\nComuna: ${valuation.property_data?.commune}\n\nPuedes ver más detalles en el informe adjunto.`;
                       const email = valuation.property_data?.client_email || '';
                       window.location.href = `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
                     }}
@@ -1096,7 +919,7 @@ export default function App() {
                       <p className="text-[11px] font-black text-slate-800 leading-none">{valuation.property_data?.client_name || "Particular"}</p>
                       <div className="flex gap-4 mt-1">
                         {valuation.property_data?.client_rut && (
-                          <div className="text-[9px]"><span className="text-gray-400 font-bold uppercase">RUT:</span> <span className="text-slate-600">{valuation.property_data.client_rut}</span></div>
+                          <div className="text-[9px]"><span className="text-gray-400 font-bold uppercase">RUT:</span> <span className="text-slate-600">{valuation.property_data?.client_rut}</span></div>
                         )}
                         <div className="text-[9px]"><span className="text-gray-400 font-bold uppercase">Tipo Informe:</span> <span className="text-slate-600 font-bold">{valuation.property_data?.report_type || 'TASACIÓN'}</span></div>
                       </div>
@@ -1155,8 +978,8 @@ export default function App() {
                       <div className="p-2 space-y-2">
                         {/* Typology & Header Info */}
                         <div className="text-[9px] leading-tight">
-                          <p className="font-black inline mr-1">TIPOLOGIA {valuation.sector_analysis.typology?.toUpperCase()},</p>
-                          <span className="text-slate-700">{valuation.sector_analysis.observations}</span>
+                          <p className="font-black inline mr-1">TIPOLOGIA {valuation.sector_analysis?.typology?.toUpperCase() || 'N/A'},</p>
+                          <span className="text-slate-700">{valuation.sector_analysis?.observations || '---'}</span>
                         </div>
 
                         {/* Middle Grids Container */}
@@ -1166,14 +989,14 @@ export default function App() {
                             <h4 className="font-black text-[9px] border-b border-slate-900 pb-0.5 mb-1.5">Mercado</h4>
                             <div className="space-y-0.5">
                               {[
-                                { l: 'Mercado objetivo', v: valuation.sector_analysis.market.target_market },
-                                { l: 'Oferta bienes similares', v: valuation.sector_analysis.market.similar_goods_offer },
-                                { l: 'Tendencia valor', v: valuation.sector_analysis.market.value_trend },
-                                { l: 'Transparencia mercado', v: valuation.sector_analysis.market.market_transparency },
-                                { l: 'Demanda bienes similares', v: valuation.sector_analysis.market.similar_goods_demand },
-                                { l: 'Plusvalía med/long plazo', v: valuation.sector_analysis.market.plusvalia_prospect },
-                                { l: 'Bien adecuado para mercado', v: valuation.sector_analysis.market.market_suitability },
-                                { l: 'Riesgo obtener valor menor', v: valuation.sector_analysis.market.low_value_risk }
+                                { l: 'Mercado objetivo', v: valuation.sector_analysis?.market?.target_market || '---' },
+                                { l: 'Oferta bienes similares', v: valuation.sector_analysis?.market?.similar_goods_offer || '---' },
+                                { l: 'Tendencia valor', v: valuation.sector_analysis?.market?.value_trend || '---' },
+                                { l: 'Transparencia mercado', v: valuation.sector_analysis?.market?.market_transparency || '---' },
+                                { l: 'Demanda bienes similares', v: valuation.sector_analysis?.market?.similar_goods_demand || '---' },
+                                { l: 'Plusvalía med/long plazo', v: valuation.sector_analysis?.market?.plusvalia_prospect || '---' },
+                                { l: 'Bien adecuado para mercado', v: valuation.sector_analysis?.market?.market_suitability || '---' },
+                                { l: 'Riesgo obtener valor menor', v: valuation.sector_analysis?.market?.low_value_risk || '---' }
                               ].map((item, idx) => (
                                 <div key={idx} className="grid grid-cols-2 gap-2 text-[8px] items-center">
                                   <span className="text-slate-600 font-medium leading-tight">{item.l}</span>
@@ -1189,9 +1012,9 @@ export default function App() {
                                 <h4 className="font-black text-[10px] border-b border-slate-900 pb-0.5 mb-2">Sector</h4>
                                 <div className="space-y-1">
                                   {[
-                                    { l: 'Calidad ambiental', v: valuation.sector_analysis.sector.environmental_quality },
-                                    { l: 'Velocidad de cambio', v: valuation.sector_analysis.sector.change_speed },
-                                    { l: 'Grado consolidación', v: valuation.sector_analysis.sector.consolidation_degree }
+                                    { l: 'Calidad ambiental', v: valuation.sector_analysis?.sector?.environmental_quality || '---' },
+                                    { l: 'Velocidad de cambio', v: valuation.sector_analysis?.sector?.change_speed || '---' },
+                                    { l: 'Grado consolidación', v: valuation.sector_analysis?.sector?.consolidation_degree || '---' }
                                   ].map((item, idx) => (
                                     <div key={idx} className="grid grid-cols-2 gap-2 text-[9px] items-center">
                                       <span className="text-slate-600 font-medium">{item.l}</span>
@@ -1204,9 +1027,9 @@ export default function App() {
                                 <h4 className="font-black text-[10px] border-b border-slate-900 pb-0.5 mb-2">Población</h4>
                                 <div className="space-y-1">
                                   {[
-                                    { l: 'Nivel Socioeconómico', v: valuation.sector_analysis.population.socioeconomic_level },
-                                    { l: 'Densidad Población', v: valuation.sector_analysis.population.population_density },
-                                    { l: 'Tendencia', v: valuation.sector_analysis.population.trend }
+                                    { l: 'Nivel Socioeconómico', v: valuation.sector_analysis?.population?.socioeconomic_level || '---' },
+                                    { l: 'Densidad Población', v: valuation.sector_analysis?.population?.population_density || '---' },
+                                    { l: 'Tendencia', v: valuation.sector_analysis?.population?.trend || '---' }
                                   ].map((item, idx) => (
                                     <div key={idx} className="grid grid-cols-2 gap-2 text-[9px] items-center">
                                       <span className="text-slate-600 font-medium">{item.l}</span>
@@ -1222,13 +1045,13 @@ export default function App() {
                             <h4 className="font-black text-[10px] border-b border-slate-900 pb-0.5 mb-2">Edificación</h4>
                             <div className="space-y-1">
                               {[
-                                { l: 'Calidad', v: valuation.sector_analysis.edificios.quality },
-                                { l: 'Densidad', v: valuation.sector_analysis.edificios.density },
-                                { l: 'Agrupamiento predom.', v: valuation.sector_analysis.edificios.predominant_grouping },
-                                { l: 'Conservación general', v: valuation.sector_analysis.edificios.general_conservation },
-                                { l: 'Edad media', v: `${valuation.sector_analysis.edificios.average_age} años` },
-                                { l: 'Tipo diseño', v: valuation.sector_analysis.edificios.design_type },
-                                { l: 'Grado de desarrollo', v: valuation.sector_analysis.edificios.development_degree }
+                                { l: 'Calidad', v: valuation.sector_analysis?.edificios?.quality || '---' },
+                                { l: 'Densidad', v: valuation.sector_analysis?.edificios?.density || '---' },
+                                { l: 'Agrupamiento predom.', v: valuation.sector_analysis?.edificios?.predominant_grouping || '---' },
+                                { l: 'Conservación general', v: valuation.sector_analysis?.edificios?.general_conservation || '---' },
+                                { l: 'Edad media', v: `${valuation.sector_analysis?.edificios?.average_age || '---'} años` },
+                                { l: 'Tipo diseño', v: valuation.sector_analysis?.edificios?.design_type || '---' },
+                                { l: 'Grado de desarrollo', v: valuation.sector_analysis?.edificios?.development_degree || '---' }
                               ].map((item, idx) => (
                                 <div key={idx} className="grid grid-cols-2 gap-2 text-[9px] items-center">
                                   <span className="text-slate-600 font-medium">{item.l}</span>
@@ -1245,19 +1068,19 @@ export default function App() {
                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                               <div className="flex justify-between items-center bg-slate-50 border border-slate-300 p-1.5 text-[9px]">
                                 <span className="font-bold">Educacional</span>
-                                <span className="font-black">{valuation.sector_analysis.equipment.educational_m} m</span>
+                                <span className="font-black">{valuation.sector_analysis?.equipment?.educational_m || '---'} m</span>
                               </div>
                               <div className="flex justify-between items-center bg-slate-50 border border-slate-300 p-1.5 text-[9px]">
                                 <span className="font-bold">Área Verde</span>
-                                <span className="font-black">{valuation.sector_analysis.equipment.green_areas_m} m</span>
+                                <span className="font-black">{valuation.sector_analysis?.equipment?.green_areas_m || '---'} m</span>
                               </div>
                               <div className="flex justify-between items-center bg-slate-50 border border-slate-300 p-1.5 text-[9px]">
                                 <span className="font-bold">C. Comercial</span>
-                                <span className="font-black">{valuation.sector_analysis.equipment.shopping_center_m} m</span>
+                                <span className="font-black">{valuation.sector_analysis?.equipment?.shopping_center_m || '---'} m</span>
                               </div>
                               <div className="flex justify-between items-center bg-violet-50 border border-slate-900 p-1.5 text-[9px]">
                                 <span className="font-bold">Calidad Movil.</span>
-                                <span className="font-black uppercase">{valuation.sector_analysis.equipment.mobilization_quality} ({valuation.sector_analysis.equipment.mobilization_m} m)</span>
+                                <span className="font-black uppercase">{valuation.sector_analysis?.equipment?.mobilization_quality || '---'} ({valuation.sector_analysis?.equipment?.mobilization_m || '---'} m)</span>
                               </div>
                            </div>
                         </div>
@@ -1269,11 +1092,11 @@ export default function App() {
                               <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-1">
                                   {[
-                                    { l: 'Urbanización', v: valuation.sector_analysis.urbanization.completion },
-                                    { l: 'Calidad', v: valuation.sector_analysis.urbanization.quality },
-                                    { l: 'Estado conserv.', v: valuation.sector_analysis.urbanization.conservation },
-                                    { l: 'Calzada', v: valuation.sector_analysis.urbanization.pavement },
-                                    { l: 'Aceras', v: valuation.sector_analysis.urbanization.sidewalks }
+                                    { l: 'Urbanización', v: valuation.sector_analysis?.urbanization?.completion || '---' },
+                                    { l: 'Calidad', v: valuation.sector_analysis?.urbanization?.quality || '---' },
+                                    { l: 'Estado conserv.', v: valuation.sector_analysis?.urbanization?.conservation || '---' },
+                                    { l: 'Calzada', v: valuation.sector_analysis?.urbanization?.pavement || '---' },
+                                    { l: 'Aceras', v: valuation.sector_analysis?.urbanization?.sidewalks || '---' }
                                   ].map((item, idx) => (
                                     <div key={idx} className="flex justify-between items-center text-[9px]">
                                       <span className="text-slate-500">{item.l}</span>
@@ -1283,12 +1106,12 @@ export default function App() {
                                 </div>
                                 <div className="space-y-1">
                                   {[
-                                    { l: 'Alcantarillado', v: valuation.sector_analysis.services.sewage },
-                                    { l: 'Gas', v: valuation.sector_analysis.services.gas },
-                                    { l: 'Electricidad', v: valuation.sector_analysis.services.electricity },
-                                    { l: 'Agua potable', v: valuation.sector_analysis.services.water },
-                                    { l: 'Aguas lluvia', v: valuation.sector_analysis.services.rain_water },
-                                    { l: 'Arbolización', v: valuation.sector_analysis.services.trees }
+                                    { l: 'Alcantarillado', v: valuation.sector_analysis?.services?.sewage || '---' },
+                                    { l: 'Gas', v: valuation.sector_analysis?.services?.gas || '---' },
+                                    { l: 'Electricidad', v: valuation.sector_analysis?.services?.electricity || '---' },
+                                    { l: 'Agua potable', v: valuation.sector_analysis?.services?.water || '---' },
+                                    { l: 'Aguas lluvia', v: valuation.sector_analysis?.services?.rain_water || '---' },
+                                    { l: 'Arbolización', v: valuation.sector_analysis?.services?.trees || '---' }
                                   ].map((item, idx) => (
                                     <div key={idx} className="flex justify-between items-center text-[9px]">
                                       <span className="text-slate-500">{item.l}</span>
@@ -1302,7 +1125,7 @@ export default function App() {
                               <h4 className="font-black text-[10px]">Observaciones Administrativas</h4>
                               <div className="bg-amber-50/50 border border-amber-100 p-3 rounded-md">
                                 <p className="text-[9px] text-slate-700 leading-relaxed font-medium italic">
-                                  {valuation.sector_analysis.urbanization_observations}
+                                  {valuation.sector_analysis?.urbanization_observations || 'No se registran observaciones adicionales.'}
                                 </p>
                               </div>
                            </div>
@@ -1567,18 +1390,18 @@ export default function App() {
                     </div>
 
                     {valuation.regulatory_analysis && (
-                      <div className={`p-4 rounded-lg border ${valuation.regulatory_analysis.is_consistent ? 'bg-green-50 border-green-100' : 'bg-amber-50 border-amber-100'}`}>
+                      <div className={`p-4 rounded-lg border ${valuation.regulatory_analysis?.is_consistent ? 'bg-green-50 border-green-100' : 'bg-amber-50 border-amber-100'}`}>
                         <div className="flex items-center gap-2 mb-2">
-                          <div className={`w-2 h-2 rounded-full ${valuation.regulatory_analysis.is_consistent ? 'bg-green-500' : 'bg-amber-500'}`} />
-                          <h4 className={`text-xs font-bold ${valuation.regulatory_analysis.is_consistent ? 'text-green-800' : 'text-amber-800'}`}>
+                          <div className={`w-2 h-2 rounded-full ${valuation.regulatory_analysis?.is_consistent ? 'bg-green-500' : 'bg-amber-500'}`} />
+                          <h4 className={`text-xs font-bold ${valuation.regulatory_analysis?.is_consistent ? 'text-green-800' : 'text-amber-800'}`}>
                             Verificación Normativa (PRC)
                           </h4>
                         </div>
-                        <p className={`text-sm leading-relaxed ${valuation.regulatory_analysis.is_consistent ? 'text-green-900' : 'text-amber-900'}`}>
-                          {valuation.regulatory_analysis.observations}
+                        <p className={`text-sm leading-relaxed ${valuation.regulatory_analysis?.is_consistent ? 'text-green-900' : 'text-amber-900'}`}>
+                          {valuation.regulatory_analysis?.observations || 'No se registran observaciones regulatorias adicionales.'}
                         </p>
                         <div className="mt-2 text-[10px] font-bold opacity-60">
-                          Consistencia: {(valuation.regulatory_analysis.compliance_score * 100).toFixed(0)}%
+                          Consistencia: {((valuation.regulatory_analysis?.compliance_score || 0) * 100).toFixed(0)}%
                         </div>
                       </div>
                     )}
@@ -1614,7 +1437,7 @@ export default function App() {
 
                         <div className="text-slate-500 font-bold uppercase">Es Esquina:</div>
                         <div className="text-slate-800 font-black text-right border-b border-slate-200 italic">
-                          {valuation.property_data?.is_corner ? valuation.property_data.corner_street : 'NO'}
+                          {valuation.property_data?.is_corner ? valuation.property_data?.corner_street : 'NO'}
                         </div>
 
                         <div className="text-slate-500 font-bold uppercase">Clasificación:</div>
@@ -1676,13 +1499,13 @@ export default function App() {
                             <h4 className="text-[9px] font-bold text-blue-800 uppercase">Altura Máxima según Superficie</h4>
                             <div className="bg-white p-2 rounded-lg border border-blue-100">
                               <p className="text-xs text-blue-900 font-bold leading-tight">
-                                {valuation.property_data.height_by_surface}
+                                {valuation.property_data?.height_by_surface || 'Cálculo pendiente'}
                               </p>
-                              {valuation.property_data.continuous_building_details && (
+                              {valuation.property_data?.continuous_building_details && (
                                 <div className="mt-1 pt-1 border-t border-blue-50 flex items-start gap-2">
                                   <div className="w-1 h-1 rounded-full bg-orange-400 mt-1 shrink-0" />
                                   <p className="text-[8px] text-orange-700 font-medium">
-                                    <span className="font-bold">E. Continua:</span> {valuation.property_data.continuous_building_details}
+                                    <span className="font-bold">E. Continua:</span> {valuation.property_data?.continuous_building_details}
                                   </p>
                                 </div>
                               )}
@@ -1694,7 +1517,7 @@ export default function App() {
                             <h4 className="text-[10px] font-bold text-green-800 uppercase">Superficie Permitida</h4>
                             <div className="bg-white p-3 rounded-lg border border-green-100">
                               <p className="text-sm text-green-900 font-bold leading-relaxed">
-                                {valuation.property_data.allowed_buildable_surface}
+                                {valuation.property_data?.allowed_buildable_surface || 'Dato no disponible'}
                               </p>
                             </div>
                           </div>
@@ -1712,14 +1535,14 @@ export default function App() {
                       <div className="space-y-1.5 text-[9px]">
                         <div className="flex justify-between items-baseline">
                           <span className="text-slate-500">Pisos Máx:</span>
-                          <span className="font-bold text-slate-800">{valuation.cabida_informe.max_floors}</span>
+                          <span className="font-bold text-slate-800">{valuation.cabida_informe?.max_floors || '---'}</span>
                         </div>
                         <div className="flex justify-between items-baseline">
                           <span className="text-slate-500">m² Edificables:</span>
-                          <span className="font-bold text-slate-800">{valuation.cabida_informe.max_m2_buildable.toLocaleString()} m²</span>
+                          <span className="font-bold text-slate-800">{(valuation.cabida_informe?.max_m2_buildable || 0).toLocaleString()} m²</span>
                         </div>
                         <p className="text-[8px] text-slate-600 leading-tight italic mt-1 border-t border-slate-200 pt-1">
-                          {valuation.cabida_informe.observations}
+                          {valuation.cabida_informe?.observations || 'Informe técnico preliminar de cabida.'}
                         </p>
                       </div>
                     </div>
@@ -1732,11 +1555,11 @@ export default function App() {
                         Restricciones
                       </h3>
                       <div className="space-y-1 text-[8px]">
-                        <p><span className="font-bold text-amber-800 uppercase">Riesgo:</span> {valuation.restricciones_analisis.risk_zones}</p>
-                        <p><span className="font-bold text-amber-800 uppercase">Expropiación:</span> {valuation.restricciones_analisis.expropriations}</p>
-                        <p><span className="font-bold text-amber-800 uppercase">Patrimonio:</span> {valuation.restricciones_analisis.heritage_protection}</p>
+                        <p><span className="font-bold text-amber-800 uppercase">Riesgo:</span> {valuation.restricciones_analisis?.risk_zones || 'No detectados'}</p>
+                        <p><span className="font-bold text-amber-800 uppercase">Expropiación:</span> {valuation.restricciones_analisis?.expropriations || 'Sin registros'}</p>
+                        <p><span className="font-bold text-amber-800 uppercase">Patrimonio:</span> {valuation.restricciones_analisis?.heritage_protection || 'No aplica'}</p>
                         <p className="text-amber-700 italic border-t border-amber-100 pt-1">
-                          {valuation.restricciones_analisis.observations}
+                          {valuation.restricciones_analisis?.observations || 'Evaluación de restricciones territoriales según PRC.'}
                         </p>
                       </div>
                     </div>
@@ -1751,10 +1574,10 @@ export default function App() {
                       <div className="space-y-1.5 text-[9px]">
                         <div className="flex justify-between items-center">
                           <span className="text-slate-500">Aprecio Anual:</span>
-                          <span className="font-bold text-green-700">{valuation.plusvalia_calculo.estimated_annual_appreciation}%</span>
+                          <span className="font-bold text-green-700">{valuation.plusvalia_calculo?.estimated_annual_appreciation || 0}%</span>
                         </div>
                         <p className="text-[8px] text-slate-600 leading-tight">
-                          <span className="font-bold text-green-800">Crecimiento:</span> {valuation.plusvalia_calculo.future_factors}
+                          <span className="font-bold text-green-800">Crecimiento:</span> {valuation.plusvalia_calculo?.future_factors || 'Tendencias de mercado estables.'}
                         </p>
                       </div>
                     </div>
@@ -1938,25 +1761,25 @@ export default function App() {
                           <div className="bg-white/5 p-6 rounded-2xl border border-white/10">
                             <h4 className="text-green-400 font-bold text-sm uppercase tracking-widest mb-4">Fortalezas</h4>
                             <ul className="space-y-2 text-sm text-slate-300">
-                              {valuation.professional_analysis?.swot?.strengths?.map((s, i) => <li key={i} className="flex gap-2"><span>•</span> {s}</li>)}
+                              {(valuation.professional_analysis?.swot?.strengths || []).map((s, i) => <li key={i} className="flex gap-2"><span>•</span> {s}</li>)}
                             </ul>
                           </div>
                           <div className="bg-white/5 p-6 rounded-2xl border border-white/10">
                             <h4 className="text-red-400 font-bold text-sm uppercase tracking-widest mb-4">Debilidades</h4>
                             <ul className="space-y-2 text-sm text-slate-300">
-                              {valuation.professional_analysis?.swot?.weaknesses?.map((w, i) => <li key={i} className="flex gap-2"><span>•</span> {w}</li>)}
+                              {(valuation.professional_analysis?.swot?.weaknesses || []).map((w, i) => <li key={i} className="flex gap-2"><span>•</span> {w}</li>)}
                             </ul>
                           </div>
                           <div className="bg-white/5 p-6 rounded-2xl border border-white/10">
                             <h4 className="text-blue-400 font-bold text-sm uppercase tracking-widest mb-4">Oportunidades</h4>
                             <ul className="space-y-2 text-sm text-slate-300">
-                              {valuation.professional_analysis?.swot?.opportunities?.map((o, i) => <li key={i} className="flex gap-2"><span>•</span> {o}</li>)}
+                              {(valuation.professional_analysis?.swot?.opportunities || []).map((o, i) => <li key={i} className="flex gap-2"><span>•</span> {o}</li>)}
                             </ul>
                           </div>
                           <div className="bg-white/5 p-6 rounded-2xl border border-white/10">
                             <h4 className="text-amber-400 font-bold text-sm uppercase tracking-widest mb-4">Amenazas</h4>
                             <ul className="space-y-2 text-sm text-slate-300">
-                              {valuation.professional_analysis?.swot?.threats?.map((t, i) => <li key={i} className="flex gap-2"><span>•</span> {t}</li>)}
+                              {(valuation.professional_analysis?.swot?.threats || []).map((t, i) => <li key={i} className="flex gap-2"><span>•</span> {t}</li>)}
                             </ul>
                           </div>
                         </div>
@@ -1998,7 +1821,7 @@ export default function App() {
                                   </tr>
                                 </thead>
                                 <tbody>
-                                  {valuation.professional_analysis?.offers?.map((offer, idx) => (
+                                  {(valuation.professional_analysis?.offers || []).map((offer, idx) => (
                                     <tr key={idx} className="border-b border-slate-300 hover:bg-slate-50 text-slate-800">
                                       <td className="p-1 border-r border-slate-300 text-center">{offer.id_nro || idx + 1}</td>
                                       <td className="p-1 border-r border-slate-300 text-center">{offer.date ? new Date(offer.date).toLocaleDateString('es-CL') : '---'}</td>
@@ -2027,9 +1850,9 @@ export default function App() {
                                         <td className="p-1 border-r border-slate-400"></td>
                                         <td className="p-1 border-r border-slate-400 text-center">-</td>
                                         <td className="p-1 border-r border-slate-400 text-center">---</td>
-                                        <td className="p-1 border-r border-slate-400 text-center">{valuation.professional_analysis.market_summary.general_avg_uf.toLocaleString()} UF</td>
+                                        <td className="p-1 border-r border-slate-400 text-center">{(valuation.professional_analysis?.market_summary?.general_avg_uf || 0).toLocaleString()} UF</td>
                                         <td className="p-1 border-r border-slate-400 text-center">-</td>
-                                        <td className="p-1 border-r border-slate-400 text-center text-violet-900">{valuation.professional_analysis.market_summary.general_avg_uf_m2.toFixed(0)} UF/m²</td>
+                                        <td className="p-1 border-r border-slate-400 text-center text-violet-900">{(valuation.professional_analysis?.market_summary?.general_avg_uf_m2 || 0).toFixed(0)} UF/m²</td>
                                         <td colSpan={2}></td>
                                       </tr>
                                       <tr className="bg-slate-50 font-black text-slate-900">
@@ -2038,9 +1861,9 @@ export default function App() {
                                         <td className="p-1 border-r border-slate-400"></td>
                                         <td className="p-1 border-r border-slate-400 text-center">-</td>
                                         <td className="p-1 border-r border-slate-400 text-center">---</td>
-                                        <td className="p-1 border-r border-slate-400 text-center">{valuation.professional_analysis.market_summary.similar_avg_uf.toLocaleString()} UF</td>
+                                        <td className="p-1 border-r border-slate-400 text-center">{(valuation.professional_analysis?.market_summary?.similar_avg_uf || 0).toLocaleString()} UF</td>
                                         <td className="p-1 border-r border-slate-400 text-center">-</td>
-                                        <td className="p-1 border-r border-slate-400 text-center text-violet-900">{valuation.professional_analysis.market_summary.similar_avg_uf_m2.toFixed(0)} UF/m²</td>
+                                        <td className="p-1 border-r border-slate-400 text-center text-violet-900">{(valuation.professional_analysis?.market_summary?.similar_avg_uf_m2 || 0).toFixed(0)} UF/m²</td>
                                         <td colSpan={2}></td>
                                       </tr>
                                       <tr className="bg-slate-50 font-black text-slate-900">
@@ -2049,9 +1872,9 @@ export default function App() {
                                         <td className="p-1 border-r border-slate-400"></td>
                                         <td className="p-1 border-r border-slate-400 text-center">-</td>
                                         <td className="p-1 border-r border-slate-400 text-center">---</td>
-                                        <td className="p-1 border-r border-slate-400 text-center">{valuation.professional_analysis.market_summary.adjusted_avg_uf.toLocaleString()} UF</td>
+                                        <td className="p-1 border-r border-slate-400 text-center">{(valuation.professional_analysis?.market_summary?.adjusted_avg_uf || 0).toLocaleString()} UF</td>
                                         <td className="p-1 border-r border-slate-400 text-center">-</td>
-                                        <td className="p-1 border-r border-slate-400 text-center text-violet-900">{valuation.professional_analysis.market_summary.adjusted_avg_uf_m2.toFixed(0)} UF/m²</td>
+                                        <td className="p-1 border-r border-slate-400 text-center text-violet-900">{(valuation.professional_analysis?.market_summary?.adjusted_avg_uf_m2 || 0).toFixed(0)} UF/m²</td>
                                         <td colSpan={2}></td>
                                       </tr>
                                       <tr className="bg-violet-100 font-black border-t border-slate-900 text-slate-900">
@@ -2060,9 +1883,9 @@ export default function App() {
                                         <td className="p-1 border-r border-slate-400"></td>
                                         <td className="p-1 border-r border-slate-400 text-center bg-violet-200">{(valuation.property_data?.m2_total) || '-'}</td>
                                         <td className="p-1 border-r border-slate-400 text-center bg-violet-200">{(valuation.property_data?.m2_useful) || '-'}</td>
-                                        <td className="p-1 border-r border-slate-400 text-center bg-violet-200 text-blue-700">{valuation.professional_analysis.market_summary.subject_value_uf.toLocaleString()} UF</td>
+                                        <td className="p-1 border-r border-slate-400 text-center bg-violet-200 text-blue-700">{(valuation.professional_analysis?.market_summary?.subject_value_uf || 0).toLocaleString()} UF</td>
                                         <td className="p-1 border-r border-slate-400 text-center bg-violet-200">-</td>
-                                        <td className="p-1 border-r border-slate-400 text-center text-violet-900 bg-violet-200">{valuation.professional_analysis.market_summary.subject_value_uf_m2.toFixed(0)} UF/m²</td>
+                                        <td className="p-1 border-r border-slate-400 text-center text-violet-900 bg-violet-200">{(valuation.professional_analysis?.market_summary?.subject_value_uf_m2 || 0).toFixed(0)} UF/m²</td>
                                         <td colSpan={2}></td>
                                       </tr>
                                     </>
@@ -2149,15 +1972,15 @@ export default function App() {
                           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 border-b-2 border-slate-900 text-[9px] font-bold uppercase bg-slate-50/50">
                             <div className="p-2 border-b sm:border-b-0 sm:border-r border-slate-300 flex justify-between">
                               <span className="text-slate-400">Cliente:</span> 
-                              <span className="text-slate-900 truncate ml-1">{valuation.property_data?.client_name?.toUpperCase()}</span>
+                              <span className="text-slate-900 truncate ml-1">{valuation.property_data?.client_name?.toUpperCase() || '---'}</span>
                             </div>
                             <div className="p-2 border-b sm:border-b-0 sm:border-r border-slate-300 flex justify-between">
                               <span className="text-slate-400">Comuna:</span> 
-                              <span className="text-slate-900 ml-1">{valuation.property_data?.commune?.toUpperCase()}</span>
+                              <span className="text-slate-900 ml-1">{valuation.property_data?.commune?.toUpperCase() || '---'}</span>
                             </div>
                             <div className="p-2 border-b sm:border-b-0 sm:border-r border-slate-300 flex justify-between">
                               <span className="text-slate-400">Tipo:</span> 
-                              <span className="text-slate-900 ml-1">{valuation.property_data?.property_type?.toUpperCase()}</span>
+                              <span className="text-slate-900 ml-1">{valuation.property_data?.property_type?.toUpperCase() || '---'}</span>
                             </div>
                             <div className="p-2 flex justify-between bg-slate-100">
                               <span className="text-slate-400">Cod.Banco:</span> 
@@ -2167,7 +1990,7 @@ export default function App() {
                           <div className="grid grid-cols-1 md:grid-cols-4 border-b-2 border-slate-900 text-[9px] font-bold uppercase">
                             <div className="p-2 border-b md:border-b-0 md:border-r border-slate-300 col-span-2 flex justify-between">
                               <span className="text-slate-400">Dirección:</span> 
-                              <span className="text-slate-900 ml-1">{valuation.property_data?.address_street?.toUpperCase()} {valuation.property_data?.address_number}</span>
+                              <span className="text-slate-900 ml-1">{(valuation.property_data?.address_street || '').toUpperCase()} {valuation.property_data?.address_number}</span>
                             </div>
                             <div className="p-2 border-b md:border-b-0 md:border-r border-slate-300 flex justify-between">
                               <span className="text-slate-400">Rol:</span> 

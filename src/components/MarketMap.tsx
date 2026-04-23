@@ -1,6 +1,6 @@
 import React from 'react';
-import { MapPin, Building2, Home } from 'lucide-react';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import { Sparkles, MapPin, Building2, Home, Landmark, ExternalLink } from 'lucide-react';
+import { MapContainer, TileLayer, Marker, Popup, ZoomControl } from 'react-leaflet';
 import L from 'leaflet';
 
 // Fix for default marker icons in Leaflet with React
@@ -27,21 +27,8 @@ interface Property {
 }
 
 const mockProperties: Record<string, Property[]> = {
-  'Metropolitana': [
-    { id: '1', commune: 'Providencia', price_uf: 5200, m2: 65, type: 'Depto', lat: -33.431, lng: -70.612 },
-    { id: '2', commune: 'Las Condes', price_uf: 8400, m2: 85, type: 'Depto', lat: -33.412, lng: -70.566 },
-    { id: '3', commune: 'Santiago', price_uf: 3100, m2: 45, type: 'Depto', lat: -33.448, lng: -70.667 },
-    { id: '4', commune: 'Ñuñoa', price_uf: 4800, m2: 70, type: 'Depto', lat: -33.454, lng: -70.597 },
-    { id: '5', commune: 'Vitacura', price_uf: 12500, m2: 120, type: 'Casa', lat: -33.381, lng: -70.578 },
-  ],
-  'Biobío': [
-    { id: '6', commune: 'Concepción (Centro)', price_uf: 4200, m2: 60, type: 'Depto', lat: -36.827, lng: -73.050 },
-    { id: '7', commune: 'San Pedro (Huertos)', price_uf: 6500, m2: 110, type: 'Casa', lat: -36.852, lng: -73.078 },
-    { id: '8', commune: 'Talcahuano', price_uf: 3500, m2: 55, type: 'Depto', lat: -36.716, lng: -73.116 },
-    { id: '9', commune: 'Chiguayante', price_uf: 4900, m2: 80, type: 'Casa', lat: -36.916, lng: -73.016 },
-    { id: '10', commune: 'Concepción (Lomas)', price_uf: 5800, m2: 75, type: 'Depto', lat: -36.800, lng: -73.030 },
-    { id: '11', commune: 'San Pedro (Andalué)', price_uf: 8200, m2: 140, type: 'Casa', lat: -36.845, lng: -73.065 },
-  ]
+  'Metropolitana': [],
+  'Biobío': []
 };
 
 const regionCenters = {
@@ -51,7 +38,7 @@ const regionCenters = {
 
 export const MarketMap: React.FC = () => {
   const [region, setRegion] = React.useState<'Metropolitana' | 'Biobío'>('Biobío');
-  const properties = mockProperties[region];
+  const properties = mockProperties[region] || [];
 
   return (
     <div className="bg-white p-4 md:p-6 rounded-lg shadow-sm border border-gray-100">
@@ -89,33 +76,58 @@ export const MarketMap: React.FC = () => {
 
       <div className="relative aspect-video bg-gray-100 rounded-xl overflow-hidden border border-gray-200 z-0">
         <MapContainer 
-          center={regionCenters[region]} 
+          center={regionCenters[region] || [-33.448, -70.667]} 
           zoom={12} 
           style={{ height: '100%', width: '100%' }}
+          zoomControl={false}
           scrollWheelZoom={false}
         >
           <TileLayer
-            attribution='Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community'
-            url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+            url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
           />
           {properties.map(prop => (
             <Marker key={prop.id} position={[prop.lat, prop.lng]}>
-              <Popup>
-                <div className="text-xs">
-                  <p className="font-bold text-blue-800">{prop.commune}</p>
-                  <p className="font-medium">{prop.type} • {prop.price_uf.toLocaleString()} UF</p>
-                  <p className="text-gray-500">{prop.m2} m² • {(prop.price_uf / prop.m2).toFixed(1)} UF/m²</p>
+              <Popup className="sii-style-popup">
+                <div className="p-3 min-w-[200px] font-sans">
+                  <div className="flex items-center gap-2 mb-2 pb-2 border-b border-gray-100">
+                    <Landmark className="w-4 h-4 text-blue-600" />
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Ficha de Referencia</span>
+                  </div>
+                  <p className="text-sm font-black text-slate-800">{prop.commune}</p>
+                  <div className="mt-3 space-y-1">
+                    <div className="flex justify-between text-[11px]">
+                      <span className="text-slate-500">Valor Referencial:</span>
+                      <span className="font-bold text-blue-600">{(prop.price_uf || 0).toLocaleString()} UF</span>
+                    </div>
+                    <div className="flex justify-between text-[11px]">
+                      <span className="text-slate-500">Superficie Terreno:</span>
+                      <span className="font-bold text-slate-700">{prop.m2 || 0} m²</span>
+                    </div>
+                    <div className="flex justify-between text-[11px]">
+                      <span className="text-slate-500">UF / m²:</span>
+                      <span className="font-bold text-slate-700">{((prop.price_uf || 0) / (prop.m2 || 1)).toFixed(1)}</span>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => window.open(`https://www4.sii.cl/mapasui/internet/#/contenido/index.html`, '_blank')}
+                    className="w-full mt-3 py-1.5 bg-slate-800 text-white text-[9px] font-black uppercase tracking-widest rounded hover:bg-black transition-colors flex items-center justify-center gap-1 shadow-sm"
+                  >
+                    <ExternalLink className="w-3 h-3" />
+                    Visor Oficial SII
+                  </button>
                 </div>
               </Popup>
             </Marker>
           ))}
+          <ZoomControl position="bottomright" />
         </MapContainer>
 
         {/* Map Legend/Overlay */}
         <div className="absolute bottom-4 left-4 bg-white/90 backdrop-blur-sm p-2 rounded-lg border border-gray-200 text-[10px] text-slate-600 z-[1000] shadow-md">
           <p className="font-bold flex items-center gap-1">
             <Sparkles className="w-3 h-3 text-blue-600" />
-            Capa: Satelital Esri World Imagery
+            Capa: Cartografía Técnica (Estilo SII)
           </p>
           <p>{region === 'Metropolitana' ? 'Región Metropolitana • Santiago' : 'Región del Biobío • Concepción'}</p>
         </div>
@@ -124,4 +136,4 @@ export const MarketMap: React.FC = () => {
   );
 };
 
-import { Sparkles } from 'lucide-react';
+export default MarketMap;

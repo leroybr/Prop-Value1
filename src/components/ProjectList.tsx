@@ -72,13 +72,13 @@ export function ProjectList({ projects }: ProjectListProps) {
               </div>
 
               <div className="flex flex-wrap gap-2 mb-6">
-                {project.amenities.slice(0, 3).map((amenity, i) => (
+                {(project.amenities || []).slice(0, 3).map((amenity, i) => (
                   <span key={i} className="bg-gray-50 text-slate-500 px-2 py-1 rounded-md text-xs flex items-center gap-1">
                     <CheckCircle2 className="w-3 h-3" />
                     {amenity}
                   </span>
                 ))}
-                {project.sustainability_features.length > 0 && (
+                {(project.sustainability_features || []).length > 0 && (
                   <span className="bg-green-50 text-green-700 px-2 py-1 rounded-md text-xs flex items-center gap-1">
                     <Leaf className="w-3 h-3" />
                     Sostenible
