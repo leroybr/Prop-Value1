@@ -1,0 +1,49 @@
+{
+  "entities": {
+    "Property": {
+      "title": "Property",
+      "description": "A real estate property listing",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "subtitle": { "type": "string" },
+        "location": { "type": "string" },
+        "price": { "type": "number" },
+        "currency": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "bedrooms": { "type": "number" },
+        "bathrooms": { "type": "number" },
+        "area": { "type": "number" },
+        "landArea": { "type": "number" },
+        "parking": { "type": "number" },
+        "type": { "type": "string" },
+        "listingType": { "type": "string" },
+        "description": { "type": "string" },
+        "amenities": { "type": "array", "items": { "type": "string" } },
+        "isPremium": { "type": "boolean" },
+        "categoryImages": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "category": { "type": "string" },
+              "imageUrl": { "type": "string" }
+            }
+          }
+        },
+        "gallery": { "type": "array", "items": { "type": "string" } },
+        "videoUrl": { "type": "string", "description": "URL of a Reel or Video (Instagram, YouTube, etc.)" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "title", "location", "price", "currency", "imageUrl", "type", "listingType"]
+    }
+  },
+  "firestore": {
+    "/properties/{propertyId}": {
+      "schema": "Property",
+      "description": "Collection of property listings"
+    }
+  }
+}

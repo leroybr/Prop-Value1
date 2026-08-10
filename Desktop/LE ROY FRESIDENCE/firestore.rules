@@ -1,0 +1,85 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: properties
+    // Document ID: propertyId (string)
+    // Fields:
+    //   - id: string (required) - Unique identifier
+    //   - title: string (required) - Property title
+    //   - subtitle: string (optional) - Property subtitle
+    //   - location: string (required) - Property location
+    //   - price: number (required) - Property price
+    //   - currency: string (required) - UF, CLP, etc.
+    //   - imageUrl: string (required) - Main image URL
+    //   - bedrooms: number (required) - Number of bedrooms
+    //   - bathrooms: number (required) - Number of bathrooms
+    //   - area: number (required) - Built area in m2
+    //   - landArea: number (optional) - Land area in m2
+    //   - parking: number (optional) - Number of parking spaces
+    //   - type: string (required) - House, Apartment, etc.
+    //   - listingType: string (required) - Sale, Rent
+    //   - description: string (required) - Property description
+    //   - amenities: list (optional) - List of amenities
+    //   - isPremium: bool (required) - Premium status
+    //   - categoryImages: list (optional) - List of category images
+    //   - gallery: list (optional) - List of gallery image URLs
+    //   - createdAt: timestamp (optional) - Creation timestamp
+    //   - updatedAt: timestamp (optional) - Last update timestamp
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (request.auth.token.email == "janiceleroy@gmail.com" && request.auth.token.email_verified == true);
+    }
+
+    function isValidProperty(data) {
+      return data.keys().hasAll(['id', 'title', 'location', 'price', 'currency', 'imageUrl', 'type', 'listingType']) &&
+             data.id is string &&
+             data.title is string && data.title.size() > 0 && data.title.size() < 200 &&
+             data.location is string &&
+             data.price is number && data.price >= 0 &&
+             data.currency is string &&
+             data.imageUrl is string &&
+             data.type is string &&
+             data.listingType is string &&
+             (!('description' in data) || (data.description is string && data.description.size() < 5000)) &&
+             (!('bedrooms' in data) || data.bedrooms is number) &&
+             (!('bathrooms' in data) || data.bathrooms is number) &&
+             (!('area' in data) || data.area is number) &&
+             (!('isPremium' in data) || data.isPremium is bool);
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /properties/{propertyId} {
+      // Publicly readable
+      allow read: if true;
+      
+      // Only admins can write
+      allow create: if isAdmin() && isValidProperty(request.resource.data);
+      allow update: if isAdmin() && isValidProperty(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    // Default deny
+    match /{path=**} {
+      allow read, write: if false;
+    }
+  }
+}
